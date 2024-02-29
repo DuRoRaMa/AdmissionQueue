@@ -1,21 +1,29 @@
-from django.http import HttpResponse
-from django.shortcuts import redirect, render
-from django.contrib import messages
-from django.contrib.auth import login, authenticate
-from django.contrib.auth.forms import AuthenticationForm 
+from django.shortcuts import render
+from django.views import View
 from django.contrib.auth.decorators import login_required
+from django.contrib.auth.mixins import LoginRequiredMixin
+from django.contrib import messages
+from rest_framework import generics
+
+from .serializers import TalonSerializer
 from .forms import RegisterForm
 from .models import Talon
 
-# Create your views here.
-@login_required
-def RegisterTalon(request):
-    if request.method == "POST":
-        form = RegisterForm(request.POST)
-        if form.is_valid():
-            talon = Talon.objects.create(**form.cleaned_data)
-            return HttpResponse(str(talon))
-    else:
-        form = RegisterForm()
 
-    return render(request, "RegisterTalon.html", {"form": form})
+class RegisterTalon(LoginRequiredMixin, View):
+    def get(self, request):
+        form = RegisterForm()
+        return render(request, "RegisterTalon.html", {"form": form})
+    
+class Operator(LoginRequiredMixin, View):
+    def get(self, request):
+        pass
+
+class TalonAPIView(generics.CreateAPIView):
+    queryset = Talon.objects.all()
+    serializer_class = TalonSerializer
+    
+    def perform_create(self, serializer):
+        serializer.save()
+        messages.info(self.request, "Talon created successfully")
+    

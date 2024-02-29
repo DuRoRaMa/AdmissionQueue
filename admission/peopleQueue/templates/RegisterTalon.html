@@ -1,10 +1,37 @@
 {% extends "Base.html" %}
 {% block content %}
 {% load crispy_forms_tags %}
-<form action="/register" method="post">
+<form action={% url 'queue:TalonAPI' %} id="RegTalon" method="post">
     {% csrf_token %}
     {{ form|crispy }}
     <button class="btn btn-primary" type="submit">Submit</button>
 </form>
-
+<iframe src="https://assets.pinterest.com/ext/embed.html?id=70437488061959" height="750" width="600" frameborder="0" scrolling="no" ></iframe>
+<script>
+    $("#RegTalon").submit(function(event){
+        event.preventDefault();
+        var data_object = $("#RegTalon").serializeJSON();
+        var data = JSON.stringify(data_object);
+        const csrftoken = Cookies.get('csrftoken');
+        $.ajax({
+            type: "POST",
+            url: $("#RegTalon").attr("action"),
+            data: data,
+            contentType: "application/json",
+            dataType: 'json',
+            beforeSend: function(jqXHR, settings) {
+                jqXHR.setRequestHeader('X-CSRFToken', csrftoken);
+            },
+            success: function(data){
+                console.log(data);
+            },
+            error: function (jqXHR, status) {
+                // error handler
+                console.log(jqXHR);
+                alert('fail' + status.code);
+            }
+        })
+        return false;
+    })
+</script>
 {% endblock content %}
