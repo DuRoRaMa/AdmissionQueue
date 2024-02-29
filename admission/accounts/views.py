@@ -27,7 +27,7 @@ class LoginView(View):
                 if next is not None:
                     return redirect(next)
                 else:
-                    return redirect('RegTalon')
+                    return redirect('queue:RegTalon')
             else:
                 messages.error(request,"Invalid username or password")
             
