@@ -1,9 +1,12 @@
+import datetime
 from django.shortcuts import render
 from django.views import View
 from django.contrib.auth.decorators import login_required
 from django.contrib.auth.mixins import LoginRequiredMixin
 from django.contrib import messages
 from rest_framework import generics
+from rest_framework.response import Response
+from rest_framework.views import APIView
 from channels.layers import get_channel_layer
 from asgiref.sync import async_to_sync
 
@@ -24,6 +27,23 @@ class OperatorView(LoginRequiredMixin, View):
 class TabloView(View):
     def get(self, request):
         return render(request, "Tablo.html", {})
+    
+class OperatorAPIView(LoginRequiredMixin, APIView):
+    def get(self, request):
+        talon = Talon.objects.filter(completed=False, compliting_by__isnull=True).order_by("created_at")[0]
+        talon.compliting_by = self.request.user
+        talon.save()
+        serializer = TalonSerializer(talon)
+        return Response(serializer.data, status=200)
+    
+    def post(self, request):
+        talon = self.request.user.compliting_talon
+        talon.completed = True
+        talon.completed_at = datetime.datetime.now()
+        talon.completed_by = self.request.user
+        talon.save()
+        return Response(status=200)
+        
 
 class TalonAPIView(LoginRequiredMixin, generics.CreateAPIView):
     queryset = Talon.objects.all()
