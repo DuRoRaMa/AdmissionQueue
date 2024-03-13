@@ -1,6 +1,6 @@
 from django.urls import re_path
-from .consumers import AsyncChatConsumer
+from .consumers import AsyncTabloConsumer
 
 websocket_urlpatterns = [
-   re_path(r'ws/chat/$', AsyncChatConsumer.as_asgi()),
+    re_path(r"^ws/tablo", AsyncTabloConsumer.as_asgi(), name="WSTablo"),
 ]

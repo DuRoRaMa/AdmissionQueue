@@ -140,7 +140,8 @@ DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 
 REDIS_HOST = os.getenv('REDIS_HOST', 'localhost')
 REDIS_PORT = os.getenv('REDIS_PORT', '6379')
-REDIS_URL = f'redis://{REDIS_HOST}:{REDIS_PORT}'
+# REDIS_URL = f'redis://{REDIS_HOST}:{REDIS_PORT}'
+REDIS_URL = (REDIS_HOST, REDIS_PORT)
 
 CHANNEL_LAYERS = {
     'default': {
@@ -165,3 +166,4 @@ MESSAGE_TAGS = {
 #         'rest_framework.renderers.BrowsableAPIRenderer',
 #     ]
 # }
+AUTH_USER_MODEL = "accounts.User"
