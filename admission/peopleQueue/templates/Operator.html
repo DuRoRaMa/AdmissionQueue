@@ -3,7 +3,12 @@
 {% block content %}
 {% load static %}
 <div id='StatusString'>
-  Статус: Ожидание
+  Текущий талон: 
+  {% if request.user.compliting_talon %}
+    {{ request.user.compliting_talon.name}}
+  {% else %}
+    Отсутствует
+  {% endif %}
 </div>
 <div>
   <button id="NextVisitorButton" type="button" class="btn btn-primary" onclick="NextVisitor()">Следующий</button>
