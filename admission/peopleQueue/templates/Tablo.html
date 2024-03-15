@@ -4,10 +4,23 @@
   <head>
     <meta charset="UTF-8" />
     <link href="{% static 'bootstrap-5.0.2-dist/css/bootstrap.min.css' %}" rel="stylesheet" />
+    <link rel="stylesheet" href="{% static "tablo/tablo.css" %}">
     <title>Tablo</title>
   </head>
   <body>
-    <div id="list"></div>
+    <h3 align="center">Электронная очередь</h3>
+    <div id="lists" class="container">
+      <div id="waitingContainer">
+        <p>Ожидание</p>
+        <div id="waitingList"></div>
+      </div>
+      <div id="inWorkContainer">
+        <p>В работе</p>
+        <div id="inWorkList"></div>
+      </div>
+    </div>
+    <script src="{% static "jquery-3.7.1.min.js" %}"></script>
+    <script src="{% static "jquery.serializeJSON.js" %}"></script>
     <script src="{% static "tablo/tablo.js" %}"></script>
     <script src="{% static "bootstrap-5.0.2-dist/js/bootstrap.min.js" %}" ></script>
   </body>

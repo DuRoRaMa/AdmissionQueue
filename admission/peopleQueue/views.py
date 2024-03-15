@@ -1,7 +1,6 @@
 import datetime
 from django.shortcuts import render
 from django.views import View
-from django.contrib.auth.decorators import login_required
 from django.contrib.auth.mixins import LoginRequiredMixin
 from django.contrib import messages
 from rest_framework import generics
@@ -14,6 +13,7 @@ from .serializers import TalonSerializer
 from .forms import RegisterForm
 from .models import Talon
 
+channel_layer = get_channel_layer()
 
 class RegisterTalonView(LoginRequiredMixin, View):
     def get(self, request):
@@ -34,29 +34,44 @@ class OperatorAPIView(LoginRequiredMixin, APIView):
         talon.compliting_by = self.request.user
         talon.save()
         serializer = TalonSerializer(talon)
+        async_to_sync(channel_layer.group_send)(
+            "tablo", {
+                "type": "talon_update",
+                "message": serializer.data
+            }
+        )
         return Response(serializer.data, status=200)
     
     def post(self, request):
         talon = self.request.user.compliting_talon
+        if talon is None:
+            return Response(data={"errors":['You do not do talon right now']}, status=400)
         talon.completed = True
         talon.completed_at = datetime.datetime.now()
         talon.completed_by = self.request.user
+        talon.compliting_by = None;
         talon.save()
+        async_to_sync(channel_layer.group_send)(
+            "tablo", {
+                "type": "talon_remove",
+                "message": TalonSerializer(talon).data
+            }
+        )
         return Response(status=200)
         
 
-class TalonAPIView(LoginRequiredMixin, generics.CreateAPIView):
-    queryset = Talon.objects.all()
+class TalonListCreateAPIView(LoginRequiredMixin, generics.ListCreateAPIView):
+    queryset = Talon.objects.filter(completed=False).order_by('created_at')
     serializer_class = TalonSerializer
     
     def perform_create(self, serializer):
         serializer.save(created_by=self.request.user, updated_by=self.request.user)
         messages.info(self.request, "Talon created successfully")
-        channel_layer = get_channel_layer()
         async_to_sync(channel_layer.group_send)(
             "tablo", {
-                "type": "chat_message",  
-                "message": serializer.data['name']
+                "type": "talon_create",
+                "message": serializer.data
             }
         )
+    
     

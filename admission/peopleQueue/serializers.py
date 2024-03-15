@@ -6,4 +6,5 @@ from .models import Talon
 class TalonSerializer(serializers.ModelSerializer):
     class Meta:
         model = Talon
-        fields = ['name']
+        fields = '__all__'
+    

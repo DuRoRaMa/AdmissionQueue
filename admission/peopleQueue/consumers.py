@@ -18,15 +18,24 @@ class AsyncTabloConsumer(AsyncJsonWebsocketConsumer):
                 "message": self.scope['user'].username+" hui"
             }
         )
-        # await self.send_json(
-        #     {
-        #         'type': 'chat_message',
-        #         'message': message
-        #     }
-        # )
 
-    # Обработчик для события chat_message
-    async def chat_message(self, event):
+    async def talon_create(self, event):
         message = event['message']
-        # Отправка сообщения
-        await self.send_json({ 'message': message })
+        await self.send_json({
+                "type": event['type'],
+                "message": message
+            })
+
+    async def talon_update(self, event):
+        message = event['message']
+        await self.send_json({
+                "type": event['type'],
+                "message": message
+            })
+
+    async def talon_remove(self, event):
+        message = event['message']
+        await self.send_json({
+                "type": event['type'],
+                "message": message
+            })

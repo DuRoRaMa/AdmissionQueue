@@ -5,8 +5,9 @@ function NextVisitor() {
         type: "GET",
         url: '/queue/operator/api',
         success: function(data){
+            console.log(data);
             current_talon = data
-            $("#StatusString").innerText = data.name;
+            $("#StatusString").get(0).textContent = "Текущий талон:" +  data.name;
         },
     })
 }
@@ -20,6 +21,7 @@ function CompleteVisitor() {
         },
         success: function(){
             current_talon = null;
+            $("#StatusString").get(0).textContent = "Текущий талон: Отсутствует";
             $("#StatusString").innerText = "Статус: Ожидание";
         },
     })
