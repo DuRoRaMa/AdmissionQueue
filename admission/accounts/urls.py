@@ -5,6 +5,5 @@ from . import views
  
 app_name = 'accounts'
 urlpatterns = [
-    re_path(r'^login/$', views.LoginView.as_view(), name='login'),
-    re_path(r'^logout/$', views.LogoutView.as_view(), name= "logout")
+    re_path(r'^user/$', views.UserRetriaveAPIView.as_view())
 ]
