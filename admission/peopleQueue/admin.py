@@ -1,6 +1,11 @@
 from django.contrib import admin
 
-from .models import Talon
+from .models import *
 
 # Register your models here.
 admin.site.register(Talon)
+admin.site.register(TalonAction)
+admin.site.register(TalonLog)
+admin.site.register(TalonPurposes)
+admin.site.register(OperatorLocation)
+admin.site.register(OperatorSettings)
