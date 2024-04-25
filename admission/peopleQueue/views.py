@@ -13,27 +13,11 @@ from asgiref.sync import async_to_sync
 
 from accounts.authentication import BearerAuthentication
 
-from .serializers import OperatorLocationSerializer, OperatorSettingsSerializer, TalonPurposesSerializer, TalonSerializer
+from .serializers import OperatorLocationSerializer, OperatorSettingsSerializer, TalonPurposesSerializer, TalonSerializer, TalonLogSerializer
 from .forms import RegisterForm
-from .models import OperatorLocation, OperatorSettings, Talon, TalonPurposes
+from .models import OperatorLocation, OperatorSettings, Talon, TalonLog, TalonPurposes
 
 channel_layer = get_channel_layer()
-
-
-class RegisterTalonView(LoginRequiredMixin, View):
-    def get(self, request):
-        form = RegisterForm()
-        return render(request, "RegisterTalon.html", {"form": form})
-
-
-class OperatorView(LoginRequiredMixin, View):
-    def get(self, request):
-        return render(request, "Operator.html", {})
-
-
-class TabloView(View):
-    def get(self, request):
-        return render(request, "Tablo.html", {})
 
 
 class OperatorAPIView(LoginRequiredMixin, APIView):
@@ -99,6 +83,13 @@ class TalonPurposesListAPIView(generics.ListAPIView):
     permission_classes = [IsAuthenticated]
     queryset = TalonPurposes.objects.all()
     serializer_class = TalonPurposesSerializer
+
+
+class TabloAPIView(generics.GenericAPIView):
+    def get(self, request):
+        q = Talon.objects.exclude(logs__action__name__in=[
+                                  "Completed", "Cancelled"])
+        return Response(data=TalonLogSerializer(q.logs(), many=True).data, status=200)
 
 
 class OperatorSettingsAPIView(generics.GenericAPIView):

@@ -18,9 +18,11 @@ from django.contrib import admin
 from django.urls import include, re_path, path
 from django.views.decorators.csrf import csrf_exempt
 from drf_spectacular.views import SpectacularAPIView, SpectacularSwaggerView
+from graphene_django.views import GraphQLView
 
 urlpatterns = [
     re_path(r'^admin/', admin.site.urls),
+    path("graphql", csrf_exempt(GraphQLView.as_view(graphiql=True))),
     re_path(r'api/', include([
         re_path(r'^v1/', include([
             re_path(r'^auth/', include('djoser.urls')),

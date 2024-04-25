@@ -53,6 +53,7 @@ INSTALLED_APPS = [
     "djoser",
     "drf_spectacular",
     "channels",
+    "graphene_django",
     "accounts.apps.AccountsConfig",
     "peopleQueue"
 ]
@@ -177,3 +178,7 @@ REST_FRAMEWORK = {
 }
 
 AUTH_USER_MODEL = "accounts.CustomUser"
+
+GRAPHENE = {
+    "SCHEMA": "peopleQueue.schema.schema"
+}

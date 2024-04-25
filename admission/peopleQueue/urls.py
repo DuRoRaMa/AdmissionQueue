@@ -11,4 +11,5 @@ urlpatterns = [
     re_path(r"^settings/",
             views.OperatorSettingsAPIView.as_view()),
     re_path(r"^purposes/", views.TalonPurposesListAPIView.as_view()),
+    re_path(r"tablo/", views.TabloAPIView().as_view())
 ]
