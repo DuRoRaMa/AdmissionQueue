@@ -1,6 +1,0 @@
-<form id="contact_form" action="{% url 'accounts:login' %}?{{ request.GET.urlencode }}" method="post">
-    {% load crispy_forms_tags %}
-    {% csrf_token %}
-    {{ login_form|crispy }}
-    <button class="btn btn-primary" type="submit">Войти</button>
-</form>
