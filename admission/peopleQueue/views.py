@@ -14,7 +14,6 @@ from asgiref.sync import async_to_sync
 from accounts.authentication import BearerAuthentication
 
 from .serializers import OperatorLocationSerializer, OperatorSettingsSerializer, TalonPurposesSerializer, TalonSerializer, TalonLogSerializer
-from .forms import RegisterForm
 from .models import OperatorLocation, OperatorSettings, Talon, TalonLog, TalonPurposes
 
 channel_layer = get_channel_layer()
