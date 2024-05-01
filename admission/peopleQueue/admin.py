@@ -4,7 +4,6 @@ from .models import *
 
 # Register your models here.
 admin.site.register(Talon)
-admin.site.register(TalonAction)
 admin.site.register(TalonLog)
 admin.site.register(TalonPurposes)
 admin.site.register(OperatorLocation)

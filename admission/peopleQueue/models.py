@@ -11,20 +11,11 @@ class TalonPurposes(models.Model):
         return f"({self.code}) {self.name}"
 
 
-class TalonAction(models.Model):
-    # Created, Started, Completed, Canceled, Redirected
-    name = models.CharField(max_length=10)
-    description = models.TextField(default="", blank=True)
-
-    def __str__(self):
-        return self.name
-
-
 class Talon(models.Model):
     name = models.CharField(max_length=10)
     purpose = models.ForeignKey(TalonPurposes, on_delete=models.DO_NOTHING)
 
-    def get_last_action(self) -> TalonAction:
+    def get_last_action(self):
         return self.logs.order_by("created_at").last()
 
     def is_over(self) -> bool:
@@ -42,15 +33,26 @@ class Talon(models.Model):
         else:
             return False
 
+    def __str__(self):
+        return f"{self.name} ({self.purpose.name})"
+
 
 class TalonLog(models.Model):
+    class Actions(models.TextChoices):
+        CREATED = "Created", "Создан"
+        STARTED = "Started", "Запущен"
+        COMPLETED = "Completed", "Завершен"
+        CANCELLED = "Cancelled", "Отменен"
+        REDIRECTED = "Redirected", "Перенаправлен"
     talon = models.ForeignKey(
         Talon, related_name="logs", on_delete=models.CASCADE)
-    action = models.ForeignKey(
-        TalonAction, related_name="logs", on_delete=models.CASCADE)
+    action = models.CharField(max_length=20, choices=Actions.choices)
     created_by = models.ForeignKey(
         settings.AUTH_USER_MODEL, related_name="talon_logs", on_delete=models.CASCADE)
     created_at = models.DateTimeField(auto_now_add=True)
+
+    def __str__(self):
+        return f"{self.talon} - {self.action} {self.created_at} by {self.created_by}"
 
 
 class OperatorLocation(models.Model):
