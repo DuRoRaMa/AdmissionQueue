@@ -1,8 +1,5 @@
 import datetime
-from django.shortcuts import render
-from django.views import View
 from django.contrib.auth.mixins import LoginRequiredMixin
-from django.contrib import messages
 from rest_framework import generics, status
 from rest_framework.response import Response
 from rest_framework.views import APIView
@@ -14,7 +11,7 @@ from asgiref.sync import async_to_sync
 from accounts.authentication import BearerAuthentication
 
 from .serializers import OperatorLocationSerializer, OperatorSettingsSerializer, TalonPurposesSerializer, TalonSerializer, TalonLogSerializer
-from .models import OperatorLocation, OperatorSettings, Talon, TalonLog, TalonPurposes
+from .models import OperatorLocation, OperatorSettings, Talon, TalonPurposes
 
 channel_layer = get_channel_layer()
 

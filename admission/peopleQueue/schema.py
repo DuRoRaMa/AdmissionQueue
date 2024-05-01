@@ -34,12 +34,6 @@ class TalonPurposesType(DjangoObjectType):
         fields = "__all__"
 
 
-class TalonActionType(DjangoObjectType):
-    class Meta:
-        model = models.TalonAction
-        fields = "__all__"
-
-
 class TalonLogType(DjangoObjectType):
     class Meta:
         model = models.TalonLog
@@ -47,13 +41,15 @@ class TalonLogType(DjangoObjectType):
 
 
 class Query(graphene.ObjectType):
-    talon = graphene.List(TalonType)
+    talons = graphene.List(TalonType)
     talon_log = graphene.Field(TalonLogType)
 
-    def resolve_talon(root, info):
-        return models.Talon.objects.all()
+    def resolve_talons(root, info):
+        return models.Talon.objects.filter(logs__action=models.TalonLog.Actions.STARTED).exclude(logs__action__in=[models.TalonLog.Actions.COMPLETED, models.TalonLog.Actions.CANCELLED])
 
     def resolve_talon_log(root, info):
+        if type(info.context) == dict:
+            return info.context.get('talonLog')
         return models.TalonLog.objects.last()
 
 
