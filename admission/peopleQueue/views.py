@@ -82,6 +82,8 @@ class TalonPurposesListAPIView(generics.ListAPIView):
 
 
 class TabloAPIView(generics.GenericAPIView):
+    serializer_class = TalonLogSerializer
+
     def get(self, request):
         q = Talon.objects.exclude(logs__action__name__in=[
                                   "Completed", "Cancelled"])
