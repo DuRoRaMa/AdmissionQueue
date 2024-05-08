@@ -1,0 +1,3 @@
+#### When docker container is running and you need to create superuser:
+
+`docker exec -it admissionqueue_backend_1 python manage.py createsuperuser`
