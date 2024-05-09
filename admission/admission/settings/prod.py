@@ -2,9 +2,11 @@ from dotenv import load_dotenv
 from .base import *
 if os.environ.get('CI'):
     if not load_dotenv(os.environ.get('.env.production')):
+        print(os.environ)
         raise Exception("Failed to load CI .env")
 else:
     if not load_dotenv(BASE_DIR.parent.joinpath(".env.production")):
+        print(os.environ)
         raise Exception("Failed to load .env")
 
 DEBUG = False
