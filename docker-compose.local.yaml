@@ -5,6 +5,8 @@ services:
     ports:
       - 8000:8000
     env_file: ./.env.local
+    environment:
+      - DJANGO_SETTINGS_MODULE=admission.settings.local
     depends_on:
       - redis
       - pgdb

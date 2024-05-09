@@ -6,6 +6,9 @@ __pycache__/
 # C extensions
 *.so
 
+# Django static
+/admission/static
+
 # Env file
 .env.production
 
