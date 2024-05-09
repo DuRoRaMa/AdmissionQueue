@@ -12,9 +12,10 @@ print(os.environ)
 DEBUG = False
 
 ALLOWED_HOSTS = ['95.174.92.61']
+CORS_ORIGIN_ALLOW_ALL = False
 CORS_ALLOWED_ORIGINS = [
-    'http://95.172.92.61:8000',
-    'http://95.172.92.61'
+    'http://95.174.92.61:8000',
+    'http://95.174.92.61'
 ]
 
 SECRET_KEY = os.environ.get('DJANGO_SECRET_KEY')
