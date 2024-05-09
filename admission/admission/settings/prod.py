@@ -13,7 +13,7 @@ DEBUG = False
 
 ALLOWED_HOSTS = ['95.174.92.61']
 CORS_ALLOWED_ORIGINS = [
-    'http://95.172.92.61'
+    'http://95.172.92.61:8000'
 ]
 
 SECRET_KEY = os.environ.get('DJANGO_SECRET_KEY')
