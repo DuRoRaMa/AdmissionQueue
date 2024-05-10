@@ -13,6 +13,7 @@ class TalonPurposes(models.Model):
 
 class Talon(models.Model):
     name = models.CharField(max_length=10)
+    ordinal = models.IntegerField()
     purpose = models.ForeignKey(TalonPurposes, on_delete=models.DO_NOTHING)
 
     def get_last_action(self):
@@ -47,6 +48,7 @@ class TalonLog(models.Model):
     talon = models.ForeignKey(
         Talon, related_name="logs", on_delete=models.CASCADE)
     action = models.CharField(max_length=20, choices=Actions.choices)
+    comment = models.TextField(blank=True, default='')
     created_by = models.ForeignKey(
         settings.AUTH_USER_MODEL, related_name="talon_logs", on_delete=models.CASCADE)
     created_at = models.DateTimeField(auto_now_add=True)

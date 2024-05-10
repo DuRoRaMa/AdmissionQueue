@@ -11,12 +11,15 @@ from asgiref.sync import async_to_sync
 from accounts.authentication import BearerAuthentication
 
 from .serializers import OperatorLocationSerializer, OperatorSettingsSerializer, TalonPurposesSerializer, TalonSerializer, TalonLogSerializer
-from .models import OperatorLocation, OperatorSettings, Talon, TalonPurposes
+from .models import OperatorLocation, OperatorSettings, Talon, TalonLog, TalonPurposes
 
 channel_layer = get_channel_layer()
 
 
-class OperatorAPIView(LoginRequiredMixin, APIView):
+class OperatorAPIView(APIView):
+    authentication_classes = [SessionAuthentication,
+                              BasicAuthentication, BearerAuthentication]
+    permission_classes = [IsAuthenticated]
     serializer_class = TalonSerializer
 
     def get(self, request):
@@ -51,18 +54,38 @@ class OperatorAPIView(LoginRequiredMixin, APIView):
         return Response(status=200)
 
 
-class TalonListCreateAPIView(LoginRequiredMixin, generics.ListCreateAPIView):
+class TalonListCreateAPIView(generics.ListCreateAPIView):
+    authentication_classes = [SessionAuthentication,
+                              BasicAuthentication, BearerAuthentication]
+    permission_classes = [IsAuthenticated]
     queryset = Talon.objects.all()
     serializer_class = TalonSerializer
 
-    def perform_create(self, serializer):
-        serializer.save(created_by=self.request.user)
-        async_to_sync(channel_layer.group_send)(
-            "tablo", {
-                "type": "talon_create",
-                "message": serializer.data
-            }
+    def create(self, request, *args, **kwargs):
+        serializer = self.get_serializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        instance = self.perform_create(serializer)
+        headers = self.get_success_headers(serializer.data)
+        log = TalonLogSerializer(
+            data={'talon': instance.pk,
+                  'action': TalonLog.Actions.CREATED,
+                  'comment': request.data.get('comment', ''),
+                  'created_by': request.user.pk}
         )
+        log.is_valid(raise_exception=True)
+        log.save()
+        return Response(serializer.data, status=status.HTTP_201_CREATED, headers=headers)
+
+    def perform_create(self, serializer):
+        d = serializer.validated_data
+        ordinal = 1
+        f = Talon.objects.filter(purpose=d.get('purpose')).exclude(logs__action__in=[
+            TalonLog.Actions.COMPLETED, TalonLog.Actions.CANCELLED]).last()
+        if f:
+            ordinal += f.ordinal
+        name = f"{d.get('purpose').code}{
+            ordinal}"
+        return serializer.save(name=name, ordinal=ordinal)
 
 
 class OperatorLocationListAPIView(generics.ListAPIView):
