@@ -1,10 +1,11 @@
+import logging
 from dotenv import load_dotenv
 from .base import *
 
-print(BASE_DIR.parent.joinpath(".env.local"))
 if not load_dotenv(BASE_DIR.parent.joinpath(".env.local")):
     raise Exception("Failed to load .env")
 
+logging.basicConfig(level=logging.INFO)
 DEBUG = True
 
 ALLOWED_HOSTS = ['*']
