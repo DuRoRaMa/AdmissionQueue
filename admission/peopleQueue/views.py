@@ -1,5 +1,7 @@
 import datetime
+import logging
 from django.contrib.auth.mixins import LoginRequiredMixin
+from django.http import JsonResponse
 from rest_framework import generics, status
 from rest_framework.response import Response
 from rest_framework.views import APIView
@@ -16,42 +18,62 @@ from .models import OperatorLocation, OperatorSettings, Talon, TalonLog, TalonPu
 channel_layer = get_channel_layer()
 
 
-class OperatorAPIView(APIView):
+class OperatorTalonActionAPIView(APIView):
     authentication_classes = [SessionAuthentication,
                               BasicAuthentication, BearerAuthentication]
     permission_classes = [IsAuthenticated]
-    serializer_class = TalonSerializer
 
     def get(self, request):
-        talon = Talon.objects.filter(
-            completed=False, compliting_by__isnull=True).order_by("created_at")[0]
-        talon.compliting_by = self.request.user
-        talon.save()
-        serializer = TalonSerializer(talon)
-        async_to_sync(channel_layer.group_send)(
-            "tablo", {
-                "type": "talon_update",
-                "message": serializer.data
-            }
-        )
-        return Response(serializer.data, status=200)
+        action = request.GET.get('action')
+        if action is None:
+            return Response(status=400)
+        elif action == "next":
+            talon = Talon.objects.exclude(
+                logs__action__in=[TalonLog.Actions.COMPLETED,
+                                  TalonLog.Actions.CANCELLED]
+            ).filter(
+                compliting=False,
+                purpose__in=request.user.operator_settings.purposes.all()
+            ).first()
+            if talon is None:
+                return JsonResponse(data={'id': None}, status=200)
+            talon.compliting = True
+            talon.save()
+            TalonLog(talon=talon,
+                     action=TalonLog.Actions.ASSIGNED,
+                     created_by=request.user).save()
+            return JsonResponse(data={'id': talon.id}, status=200)
+        elif action == "current":
+            res = request.user.get_current_operator_talon()
+            if res:
+                return JsonResponse(data={'id': res.id}, status=200)
+            return JsonResponse(data={'id': None}, status=200)
+        else:
+            return Response(status=400)
 
     def post(self, request):
-        talon = self.request.user.compliting_talon
-        if talon is None:
-            return Response(data={"errors": ['You do not do talon right now']}, status=400)
-        talon.completed = True
-        talon.completed_at = datetime.datetime.now()
-        talon.completed_by = self.request.user
-        talon.compliting_by = None
-        talon.save()
-        async_to_sync(channel_layer.group_send)(
-            "tablo", {
-                "type": "talon_remove",
-                "message": TalonSerializer(talon).data
-            }
-        )
-        return Response(status=200)
+        action = request.GET.get('action')
+        logging.info(action)
+        if action == 'start':
+            talon = request.user.get_current_operator_talon()
+            TalonLog(
+                talon=talon,
+                action=TalonLog.Actions.STARTED,
+                created_by=request.user
+            ).save()
+            return Response(status=200)
+        elif action == 'complete':
+            talon = request.user.get_current_operator_talon()
+            talon.compliting = False
+            talon.save()
+            TalonLog(
+                talon=talon,
+                action=TalonLog.Actions.COMPLETED,
+                created_by=request.user
+            ).save()
+            return Response(status=200)
+        else:
+            return Response(status=400)
 
 
 class TalonListCreateAPIView(generics.ListCreateAPIView):
