@@ -15,6 +15,7 @@ class Talon(models.Model):
     name = models.CharField(max_length=10)
     ordinal = models.IntegerField()
     purpose = models.ForeignKey(TalonPurposes, on_delete=models.DO_NOTHING)
+    compliting = models.BooleanField(default=False)
 
     def get_last_action(self):
         return self.logs.order_by("created_at").last()
@@ -41,6 +42,7 @@ class Talon(models.Model):
 class TalonLog(models.Model):
     class Actions(models.TextChoices):
         CREATED = "Created", "Создан"
+        ASSIGNED = "Assigned", "Назначен"
         STARTED = "Started", "Запущен"
         COMPLETED = "Completed", "Завершен"
         CANCELLED = "Cancelled", "Отменен"
