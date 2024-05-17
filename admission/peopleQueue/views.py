@@ -96,7 +96,7 @@ class TalonListCreateAPIView(generics.ListCreateAPIView):
         )
         log.is_valid(raise_exception=True)
         log.save()
-        return Response(serializer.data, status=status.HTTP_201_CREATED, headers=headers)
+        return JsonResponse(data={'id': instance.pk}, status=status.HTTP_201_CREATED, headers=headers)
 
     def perform_create(self, serializer):
         d = serializer.validated_data
