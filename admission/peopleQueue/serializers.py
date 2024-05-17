@@ -22,6 +22,27 @@ class OperatorSettingsSerializer(serializers.ModelSerializer):
         model = models.OperatorSettings
         fields = '__all__'
 
+    def create(self, validated_data):
+        ret: models.OperatorSettings = super().create(validated_data)
+        user = ret.user
+        if ret.automatic_assignment:
+            for purpose in ret.purposes.all():
+                models.OperatorQueue(user=user, purpose=purpose).save()
+        else:
+            models.OperatorQueue.objects.filter(user=user).delete()
+
+        return ret
+
+    def update(self, instance: models.OperatorSettings, validated_data):
+        user = instance.user
+        models.OperatorQueue.objects.filter(user=user).delete()
+        if validated_data.get("automatic_assignment"):
+            for purpose in validated_data.get("purposes"):
+                models.OperatorQueue(user=user, purpose=purpose).save()
+
+        ret: models.OperatorSettings = super().update(instance, validated_data)
+        return ret
+
 
 class TalonLogSerializer(serializers.ModelSerializer):
     class Meta:

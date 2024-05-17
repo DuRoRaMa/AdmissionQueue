@@ -72,6 +72,13 @@ class OperatorSettings(models.Model):
     location = models.OneToOneField(
         OperatorLocation, related_name="settings", on_delete=models.SET_NULL, null=True, default=None)
     purposes = models.ManyToManyField(TalonPurposes, blank=True)
+    automatic_assignment = models.BooleanField(default=False)
 
     def __str__(self):
         return f"Настройки {self.user.username}"
+
+
+class OperatorQueue(models.Model):
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL, related_name="operator_queue", on_delete=models.CASCADE)
+    purpose = models.ForeignKey(TalonPurposes, on_delete=models.CASCADE)
