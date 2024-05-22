@@ -1,21 +1,14 @@
 from dotenv import load_dotenv
 from .base import *
 print(os.environ)
-# if os.environ.get('CI'):
-#     if not load_dotenv(os.environ.get('.env.production')):
-#         raise Exception("Failed to load CI .env")
-# else:
-#     if not load_dotenv(BASE_DIR.parent.joinpath(".env.production")):
-#         print(os.environ)
-#         raise Exception("Failed to load .env")
 
 DEBUG = False
 
-ALLOWED_HOSTS = ['95.174.92.61']
+ALLOWED_HOSTS = ['pavlyuk-it.ru']
 CORS_ORIGIN_ALLOW_ALL = False
 CORS_ALLOWED_ORIGINS = [
-    'http://95.174.92.61:8000',
-    'http://95.174.92.61'
+    'https://pavlyuk-it.ru:8000',
+    'https://pavlyuk-it.ru'
 ]
 
 SECRET_KEY = os.environ.get('DJANGO_SECRET_KEY')
@@ -28,7 +21,8 @@ AUTH_PASSWORD_VALIDATORS = [
         "NAME": "django.contrib.auth.password_validation.UserAttributeSimilarityValidator",
     },
     {
-        "NAME": "django.contrib.auth.password_validation.MinimumLengthValidator", },
+        "NAME": "django.contrib.auth.password_validation.MinimumLengthValidator",
+    },
     {
         "NAME": "django.contrib.auth.password_validation.CommonPasswordValidator",
     },
