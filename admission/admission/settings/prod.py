@@ -1,10 +1,9 @@
 from dotenv import load_dotenv
 from .base import *
-print(os.environ)
 
 DEBUG = False
 
-ALLOWED_HOSTS = ['pavlyuk-it.ru']
+ALLOWED_HOSTS = ['www.pavlyuk-it.ru']
 CORS_ORIGIN_ALLOW_ALL = False
 CORS_ALLOWED_ORIGINS = [
     'https://pavlyuk-it.ru:8000',
