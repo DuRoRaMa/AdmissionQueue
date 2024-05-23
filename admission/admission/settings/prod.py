@@ -3,7 +3,7 @@ from .base import *
 
 DEBUG = False
 
-ALLOWED_HOSTS = ['www.pavlyuk-it.ru', '95.174.92.61']
+ALLOWED_HOSTS = ['www.pavlyuk-it.ru', '95.174.92.61', 'pavlyuk-it.ru']
 CORS_ORIGIN_ALLOW_ALL = False
 CORS_ALLOWED_ORIGINS = [
     'https://pavlyuk-it.ru',
