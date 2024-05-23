@@ -6,10 +6,8 @@ DEBUG = False
 ALLOWED_HOSTS = ['www.pavlyuk-it.ru', '95.174.92.61']
 CORS_ORIGIN_ALLOW_ALL = False
 CORS_ALLOWED_ORIGINS = [
-    'https://pavlyuk-it.ru:8000',
     'https://pavlyuk-it.ru',
     'http://95.174.92.61',
-    'http://95.174.92.61:8000',
 ]
 
 SECRET_KEY = os.environ.get('DJANGO_SECRET_KEY')
