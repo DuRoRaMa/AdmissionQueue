@@ -10,6 +10,8 @@ ALLOWED_HOSTS = [
     '127.0.0.1',
     'localhost'
 ]
+SERVER_DOMAIN = "https://pavlyuk-it.ru"
+BOT_TOKEN = os.environ.get('BOT_TOKEN')
 CORS_ORIGIN_ALLOW_ALL = False
 CORS_ALLOWED_ORIGINS = [
     'https://pavlyuk-it.ru',

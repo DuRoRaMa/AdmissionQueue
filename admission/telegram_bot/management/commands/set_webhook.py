@@ -6,7 +6,6 @@ from tg_init import BOT
 
 
 class Command(BaseCommand):
-
     def handle(self, *args, **options):
         url = "{}{}".format(settings.SERVER_DOMAIN, reverse("process"))
         is_appointed = BOT.set_webhook(url=url)
