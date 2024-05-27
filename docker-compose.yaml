@@ -2,8 +2,12 @@ version: "3.8"
 services:
   backend:
     build: .
+    container_name: aq-backend
     ports:
       - 8000:8000
+    networks:
+      - backend
+      - proxy
     expose:
       - 8000
     env_file:
@@ -18,6 +22,8 @@ services:
     env_file:
       - ${ENV_FILE}
     container_name: pgdb
+    networks:
+      - backend
     expose:
       - 5432
     volumes:
@@ -25,6 +31,8 @@ services:
   redis:
     image: redis:latest
     restart: always
+    networks:
+      - backend
     expose:
       - 6379
     volumes:
@@ -36,5 +44,6 @@ volumes:
     driver: local
 
 networks:
-  default:
-    driver: bridge
+  backend:
+  proxy:
+    external: true
