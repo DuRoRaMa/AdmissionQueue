@@ -25,7 +25,8 @@ INSTALLED_APPS = [
     "channels",
     "graphene_django",
     "accounts.apps.AccountsConfig",
-    "peopleQueue"
+    "peopleQueue",
+    "telegram_bot",
 ]
 
 MIDDLEWARE = [
