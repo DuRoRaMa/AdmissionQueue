@@ -45,5 +45,5 @@ volumes:
 
 networks:
   backend:
-  proxy:
+  aq-proxy:
     external: true
