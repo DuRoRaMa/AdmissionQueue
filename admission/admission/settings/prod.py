@@ -4,7 +4,7 @@ from .base import *
 DEBUG = False
 
 ALLOWED_HOSTS = [
-    'www.pavlyuk-it.ru',
+    '.pavlyuk-it.ru',
     '95.174.92.61',
     'pavlyuk-it.ru',
     '127.0.0.1',

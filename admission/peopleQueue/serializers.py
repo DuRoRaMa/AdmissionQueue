@@ -28,6 +28,8 @@ class OperatorSettingsSerializer(serializers.ModelSerializer):
         if ret.automatic_assignment:
             for purpose in ret.purposes.all():
                 models.OperatorQueue(user=user, purpose=purpose).save()
+            if ret.user.is_assigned_talon():
+                ret.user.assign_talon()
         else:
             models.OperatorQueue.objects.filter(user=user).delete()
 
@@ -39,8 +41,9 @@ class OperatorSettingsSerializer(serializers.ModelSerializer):
         if validated_data.get("automatic_assignment"):
             for purpose in validated_data.get("purposes"):
                 models.OperatorQueue(user=user, purpose=purpose).save()
-
         ret: models.OperatorSettings = super().update(instance, validated_data)
+        if validated_data.get("automatic_assignment") and not user.is_assigned_talon():
+            ret.user.assign_talon()
         return ret
 
 

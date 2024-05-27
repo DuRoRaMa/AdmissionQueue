@@ -1,10 +1,9 @@
 from django.dispatch import receiver
 from django.db.models.signals import post_save
-from channels.db import database_sync_to_async
-from asgiref.sync import async_to_sync
+from asgiref.sync import sync_to_async
 from channels.layers import get_channel_layer
 
-from .models import TalonLog
+from .models import TalonLog, Talon, OperatorQueue
 from .schema import schema
 from .serializers import TalonLogSerializer
 
@@ -28,6 +27,17 @@ talonlog_query = """
   }
 }
 """
+
+
+@receiver(post_save, sender=Talon)
+async def on_talon_post_save(sender, instance, created, raw, using, update_fields, **kwargs):
+    # if OQ exist then assing talon for this user
+    # else ignore. For this talon doesnt exist suitable user
+    if created:
+        OQ = await OperatorQueue.objects.filter(purpose=instance.purpose).select_related('user').afirst()
+        if OQ:
+            user = OQ.user
+            user.aassign_talon()
 
 
 @receiver(post_save, sender=TalonLog)

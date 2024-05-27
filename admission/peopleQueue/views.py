@@ -1,4 +1,3 @@
-import datetime
 import logging
 from django.contrib.auth.mixins import LoginRequiredMixin
 from django.http import JsonResponse
@@ -8,7 +7,6 @@ from rest_framework.views import APIView
 from rest_framework.authentication import SessionAuthentication, BasicAuthentication
 from rest_framework.permissions import IsAuthenticated
 from channels.layers import get_channel_layer
-from asgiref.sync import async_to_sync
 
 from accounts.authentication import BearerAuthentication
 
@@ -28,21 +26,11 @@ class OperatorTalonActionAPIView(APIView):
         if action is None:
             return Response(status=400)
         elif action == "next":
-            talon = Talon.objects.exclude(
-                logs__action__in=[TalonLog.Actions.COMPLETED,
-                                  TalonLog.Actions.CANCELLED]
-            ).filter(
-                compliting=False,
-                purpose__in=request.user.operator_settings.purposes.all()
-            ).first()
-            if talon is None:
+            talon = request.user.assign_talon()
+            if talon:
+                return JsonResponse(data={'id': talon.id}, status=200)
+            else:
                 return JsonResponse(data={'id': None}, status=200)
-            talon.compliting = True
-            talon.save()
-            TalonLog(talon=talon,
-                     action=TalonLog.Actions.ASSIGNED,
-                     created_by=request.user).save()
-            return JsonResponse(data={'id': talon.id}, status=200)
         elif action == "current":
             res = request.user.get_current_operator_talon()
             if res:
@@ -54,16 +42,26 @@ class OperatorTalonActionAPIView(APIView):
     def post(self, request):
         action = request.GET.get('action')
         logging.info(action)
+        talon = request.user.get_current_operator_talon()
         if action == 'start':
-            talon = request.user.get_current_operator_talon()
             TalonLog(
                 talon=talon,
                 action=TalonLog.Actions.STARTED,
                 created_by=request.user
             ).save()
             return Response(status=200)
+        elif action == 'cancel':
+            talon.compliting = False
+            talon.save()
+            TalonLog(
+                talon=talon,
+                action=TalonLog.Actions.CANCELLED,
+                created_by=request.user
+            ).save()
+            if request.user.operator_settings.automatic_assignment:
+                request.user.assign_talon()
+            return Response(status=200)
         elif action == 'complete':
-            talon = request.user.get_current_operator_talon()
             talon.compliting = False
             talon.save()
             TalonLog(
@@ -71,6 +69,8 @@ class OperatorTalonActionAPIView(APIView):
                 action=TalonLog.Actions.COMPLETED,
                 created_by=request.user
             ).save()
+            if request.user.operator_settings.automatic_assignment:
+                request.user.assign_talon()
             return Response(status=200)
         else:
             return Response(status=400)
@@ -101,10 +101,7 @@ class TalonListCreateAPIView(generics.ListCreateAPIView):
     def perform_create(self, serializer):
         d = serializer.validated_data
         ordinal = 1
-        f = Talon.objects.filter(purpose=d.get('purpose')).exclude(
-            logs__action__in=[TalonLog.Actions.COMPLETED,
-                              TalonLog.Actions.CANCELLED]
-        ).last()
+        f = Talon.get_active_queryset().filter(purpose=d.get('purpose')).last()
         if f:
             ordinal += f.ordinal
         name = f"{d.get('purpose').code}{
@@ -132,8 +129,7 @@ class TabloAPIView(generics.GenericAPIView):
     serializer_class = TalonLogSerializer
 
     def get(self, request):
-        q = Talon.objects.exclude(logs__action__name__in=[
-                                  "Completed", "Cancelled"])
+        q = Talon.get_active_queryset()
         return Response(data=TalonLogSerializer(q.logs(), many=True).data, status=200)
 
 
@@ -153,17 +149,18 @@ class OperatorSettingsAPIView(generics.GenericAPIView):
             instance = OperatorSettings(user=user)
             instance.save()
         serializer = self.get_serializer(instance)
-        return Response(serializer.data)
+        return JsonResponse(serializer.data, status=200)
 
     def patch(self, request, *args, **kwargs):
         user = request.user
         query = self.queryset.filter(user=user)
         try:
             instance = query.get()
-            serializer = self.get_serializer(
-                instance, data=request.data, partial=True)
         except OperatorSettings.DoesNotExist:
-            serializer = self.get_serializer(user=user, data=request.data)
+            instance = OperatorSettings(user=user)
+            instance.save()
+        serializer = self.get_serializer(
+            instance, data=request.data, partial=True)
         serializer.is_valid(raise_exception=True)
         serializer.save()
         return Response(status=status.HTTP_200_OK)

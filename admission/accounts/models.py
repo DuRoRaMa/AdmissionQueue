@@ -12,12 +12,6 @@ class CustomUser(AbstractUser):
         return self.talon_logs.filter(action__name="Completed").values("talon")
 
     def get_current_operator_talon(self) -> Talon | None:
-        # return Talon.objects.exclude(
-        #     logs__action__in=[TalonLog.Actions.COMPLETED,
-        #                       TalonLog.Actions.CANCELLED],
-        #     compliting=True).filter(
-        #     logs__action=TalonLog.Actions.ASSIGNED, logs__created_by=self
-        # ).last()
         try:
             res = TalonLog.objects.exclude(
                 action__in=[TalonLog.Actions.COMPLETED,
@@ -30,3 +24,36 @@ class CustomUser(AbstractUser):
             return res.talon
         except TalonLog.DoesNotExist:
             return None
+
+    def is_assigned_talon(self):
+        if self.get_current_operator_talon():
+            return True
+        return False
+
+    def assign_talon(self):
+        talon = Talon.get_active_queryset().filter(
+            compliting=False,
+            purpose__in=self.operator_settings.purposes.all()
+        ).first()
+        if talon is None:
+            return None
+        talon.compliting = True
+        talon.save()
+        TalonLog(talon=talon,
+                 action=TalonLog.Actions.ASSIGNED,
+                 created_by=self).save()
+        return talon
+
+    async def aassign_talon(self):
+        talon = await Talon.get_active_queryset().filter(
+            compliting=False,
+            purpose__in=self.operator_settings.purposes.all()
+        ).afirst()
+        if talon is None:
+            return None
+        talon.compliting = True
+        await talon.asave()
+        await TalonLog(talon=talon,
+                       action=TalonLog.Actions.ASSIGNED,
+                       created_by=self).asave()
+        return talon

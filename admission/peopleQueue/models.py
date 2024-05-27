@@ -8,7 +8,7 @@ class TalonPurposes(models.Model):
     description = models.TextField()
 
     def __str__(self):
-        return f"({self.code}) {self.name}"
+        return f"id({self.pk}) ({self.code}) {self.name}"
 
 
 class Talon(models.Model):
@@ -16,6 +16,13 @@ class Talon(models.Model):
     ordinal = models.IntegerField()
     purpose = models.ForeignKey(TalonPurposes, on_delete=models.DO_NOTHING)
     compliting = models.BooleanField(default=False)
+
+    @classmethod
+    def get_active_queryset(cls):
+        return cls.objects.exclude(
+            logs__action__in=[TalonLog.Actions.COMPLETED,
+                              TalonLog.Actions.CANCELLED]
+        )
 
     def get_last_action(self):
         return self.logs.order_by("created_at").last()
@@ -36,7 +43,7 @@ class Talon(models.Model):
             return False
 
     def __str__(self):
-        return f"{self.name} ({self.purpose.name})"
+        return f"id({self.pk}) {self.name} ({self.purpose.name})"
 
 
 class TalonLog(models.Model):
@@ -56,14 +63,14 @@ class TalonLog(models.Model):
     created_at = models.DateTimeField(auto_now_add=True)
 
     def __str__(self):
-        return f"{self.talon} - {self.action} {self.created_at} by {self.created_by}"
+        return f"id({self.pk})  {self.talon} - {self.action} {self.created_at} by {self.created_by}"
 
 
 class OperatorLocation(models.Model):
     name = models.CharField(max_length=30)
 
     def __str__(self):
-        return self.name
+        return f'id({self.pk})-{self.name}'
 
 
 class OperatorSettings(models.Model):
@@ -75,7 +82,7 @@ class OperatorSettings(models.Model):
     automatic_assignment = models.BooleanField(default=False)
 
     def __str__(self):
-        return f"Настройки {self.user.username}"
+        return f"id({self.pk}) Настройки {self.user.username}"
 
 
 class OperatorQueue(models.Model):
