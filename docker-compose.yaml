@@ -34,3 +34,7 @@ volumes:
   pgdbdata: null
   cache:
     driver: local
+
+networks:
+  default:
+    driver: bridge
