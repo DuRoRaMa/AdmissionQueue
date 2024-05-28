@@ -7,7 +7,7 @@ endif
 manage = ./admission/manage.py
 
 run.server.prod:
-	daphne -b 0.0.0.0 -p 8000 admission.asgi:application
+	daphne -b 0.0.0.0 -p 8000 admission.admission.asgi:application
 
 collectstatic:
 	$(py) $(manage) collectstatic --no-input
