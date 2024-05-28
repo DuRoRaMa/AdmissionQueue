@@ -1,5 +1,4 @@
 import logging
-from django.contrib.auth.mixins import LoginRequiredMixin
 from django.http import JsonResponse
 from rest_framework import generics, status
 from rest_framework.response import Response

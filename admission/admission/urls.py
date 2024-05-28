@@ -19,14 +19,12 @@ from django.urls import include, re_path, path
 from django.views.decorators.csrf import csrf_exempt
 from drf_spectacular.views import SpectacularAPIView, SpectacularSwaggerView
 from graphene_django.views import GraphQLView
-from telegram_bot.views import process
 
 urlpatterns = [
     re_path(r'^admin/', admin.site.urls),
     path("graphql", csrf_exempt(GraphQLView.as_view(graphiql=True))),
     re_path(r'api/', include([
         re_path(r'^v1/', include([
-            re_path('^process/', process, name='process'),
             re_path(r'^auth/', include('djoser.urls')),
             re_path(r'^auth/', include('djoser.urls.authtoken')),
             re_path(r'^account/', include('accounts.urls')),

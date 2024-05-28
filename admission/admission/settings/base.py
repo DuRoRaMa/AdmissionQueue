@@ -26,7 +26,6 @@ INSTALLED_APPS = [
     "graphene_django",
     "accounts.apps.AccountsConfig",
     "peopleQueue",
-    "telegram_bot",
 ]
 
 MIDDLEWARE = [
@@ -102,3 +101,5 @@ AUTH_USER_MODEL = "accounts.CustomUser"
 GRAPHENE = {
     "SCHEMA": "peopleQueue.schema.schema"
 }
+
+BOT_TOKEN = os.environ.get('BOT_TOKEN')

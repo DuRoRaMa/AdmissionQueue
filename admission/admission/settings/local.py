@@ -9,10 +9,6 @@ logging.basicConfig(level=logging.INFO)
 DEBUG = True
 
 ALLOWED_HOSTS = ['*']
-# CORS_ALLOWED_ORIGINS = [
-#     'http://localhost:5173',
-#     'http://127.0.0.1:5173',
-# ]
 CORS_ALLOW_ALL_ORIGINS = True
 
 SECRET_KEY = os.environ.get('DJANGO_SECRET_KEY')
@@ -42,3 +38,5 @@ DATABASES = {
         "PORT": 5432,
     }
 }
+
+SERVER_DOMAIN = "https://f413-62-76-6-70.ngrok-free.app"
