@@ -2,6 +2,7 @@ version: "3.8"
 services:
   backend:
     build: .
+    command: make collectstatic migrate run.server.local
     ports:
       - 8000:8000
     env_file: ./.env.local
