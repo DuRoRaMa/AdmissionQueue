@@ -4,7 +4,7 @@ else
 	py = python
 endif
 
-manage = ./admission/manage.py
+manage = ./manage.py
 
 run.server.prod:
 	daphne -b 0.0.0.0 -p 8000 admission.admission.asgi:application
@@ -19,6 +19,7 @@ run.bot:
 	$(py) -m bot
 
 run.server.local:
+	# daphne -b 0.0.0.0 -p 8000 admission.asgi:application
 	$(py) $(manage) runserver
 
 run.bot.local:
