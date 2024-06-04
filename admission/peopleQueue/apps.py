@@ -7,4 +7,3 @@ class PeoplequeueConfig(AppConfig):
 
     def ready(self) -> None:
         from . import signals
-        return super().ready()
