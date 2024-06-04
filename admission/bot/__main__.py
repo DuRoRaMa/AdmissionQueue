@@ -15,7 +15,6 @@ from aiogram.filters import ExceptionTypeFilter
 from aiogram_dialog import DialogManager, StartMode, setup_dialogs, ShowMode
 from aiogram_dialog.api.exceptions import UnknownIntent, UnknownState
 from aiohttp import web
-from aiohttp.web_app import Application
 
 from .config.bot import TELEGRAM_API_TOKEN, REDIS_URL, BASE_WEBHOOK_URL, WEB_SERVER_HOST, WEB_SERVER_PORT, WEBHOOK_PATH
 from .bot_dialogs import states
@@ -78,7 +77,7 @@ def setup_dp():
 
 
 def main():
-    app = Application()
+    app = web.Application()
     bot = Bot(TELEGRAM_API_TOKEN, parse_mode="HTML")
     dp = setup_dp()
     webhook_requests_handler = SimpleRequestHandler(
@@ -88,7 +87,7 @@ def main():
     webhook_requests_handler.register(app, path=WEBHOOK_PATH)
     setup_application(app, dp, bot=bot)
     logger.info('Starting webhook server')
-    web.run_app(app, host=WEB_SERVER_HOST, port=WEB_SERVER_PORT)
+    web.run_app(app, port=WEB_SERVER_PORT)
 
 
 if __name__ == "__main__":
