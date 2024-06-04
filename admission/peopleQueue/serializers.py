@@ -8,7 +8,7 @@ class TalonSerializer(serializers.ModelSerializer):
     class Meta:
         model = models.Talon
         fields = "__all__"
-        read_only_fields = ("name", "ordinal")
+        read_only_fields = ("name", "ordinal", 'comment')
 
 
 class TalonPurposesSerializer(serializers.ModelSerializer):
