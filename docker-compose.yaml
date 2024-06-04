@@ -21,8 +21,8 @@ services:
     build: .
     container_name: aq-bot
     command: make run.bot
-    expose:
-      - 8001
+    ports:
+      - 8001:8001
     networks:
       - aq-proxy
     env_file: ${ENV_FILE}
