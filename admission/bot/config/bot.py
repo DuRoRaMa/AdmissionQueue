@@ -6,7 +6,7 @@ from os import getenv
 
 logger = logging.getLogger(__name__)
 WEB_SERVER_HOST = "localhost"
-WEB_SERVER_PORT = 8081
+WEB_SERVER_PORT = 8001
 WEBHOOK_PATH = "/webhook"
 BASE_WEBHOOK_URL = getenv('BASE_URL', 'https://pavlyuk-it.ru')
 REDIS_URL = f"redis://{getenv('REDIS_HOST', 'localhost')}:6379"
