@@ -8,8 +8,6 @@ services:
     networks:
       - backend
       - aq-proxy
-    expose:
-      - 8000
     env_file:
       - ${ENV_FILE}
     environment:
@@ -17,6 +15,27 @@ services:
     depends_on:
       - redis
       - pgdb
+      - rq
+      - bot
+  bot:
+    build: .
+    container_name: aq-bot
+    command: make run.bot
+    expose:
+      - 8001
+    networks:
+      - aq-proxy
+    env_file: ${ENV_FILE}
+    depends_on:
+      - redis
+      - pgdb
+  rq:
+    build: .
+    container_name: aq-rqworker
+    command: make run.rqworker
+    env_file: ${ENV_FILE}
+    depends_on:
+      - redis
   pgdb:
     image: postgres:latest
     env_file:

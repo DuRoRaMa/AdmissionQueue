@@ -1,5 +1,19 @@
 version: "3.8"
 services:
+  rq:
+    build: .
+    command: make run.rqworker
+    env_file: ./.env.local
+    depends_on:
+      - redis
+  bot:
+    build: .
+    command: make run.bot
+    ports:
+      - 8001:8001
+    env_file: ./.env.local
+    depends_on:
+      - backend
   backend:
     build: .
     command: make collectstatic migrate run.server.local
