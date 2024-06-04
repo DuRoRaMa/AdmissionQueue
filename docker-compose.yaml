@@ -25,6 +25,7 @@ services:
       - 8001:8001
     networks:
       - aq-proxy
+      - backend
     env_file: ${ENV_FILE}
     depends_on:
       - redis
