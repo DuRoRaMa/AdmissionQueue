@@ -1,13 +1,9 @@
 import os
 from pathlib import Path
-from django.contrib.messages import constants as messages
-
 
 BASE_DIR = Path(__file__).resolve().parent.parent.parent
 
-
 # Application definition
-
 INSTALLED_APPS = [
     "daphne",
     "django.contrib.admin",
@@ -24,6 +20,7 @@ INSTALLED_APPS = [
     "drf_spectacular",
     "channels",
     "graphene_django",
+    "django_rq",
     "accounts.apps.AccountsConfig",
     "peopleQueue",
 ]
@@ -101,5 +98,3 @@ AUTH_USER_MODEL = "accounts.CustomUser"
 GRAPHENE = {
     "SCHEMA": "peopleQueue.schema.schema"
 }
-
-BOT_TOKEN = os.environ.get('BOT_TOKEN')

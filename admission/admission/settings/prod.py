@@ -9,15 +9,12 @@ ALLOWED_HOSTS = [
     '127.0.0.1',
     'localhost'
 ]
-SERVER_DOMAIN = "https://pavlyuk-it.ru"
 CORS_ORIGIN_ALLOW_ALL = False
 CORS_ALLOWED_ORIGINS = [
     'https://pavlyuk-it.ru',
     'http://95.174.92.61',
     'http://127.0.0.1:8000',
 ]
-
-SECRET_KEY = os.environ.get('DJANGO_SECRET_KEY')
 
 SESSION_COOKIE_SECURE = False
 CSRF_COOKIE_SECURE = False
@@ -37,7 +34,9 @@ AUTH_PASSWORD_VALIDATORS = [
     },
 ]
 
-REDIS_HOST = os.environ.get('REDIS_HOST')
+BOT_TOKEN = os.environ.get('BOT_TOKEN')
+
+REDIS_HOST = os.environ.get('REDIS_HOST', 'localhost')
 REDIS_PORT = "6379"
 REDIS_URL = (REDIS_HOST, REDIS_PORT)
 
@@ -50,13 +49,23 @@ CHANNEL_LAYERS = {
     },
 }
 
+RQ_QUEUES = {
+    'default': {
+        'HOST': REDIS_HOST,
+        'PORT': REDIS_PORT,
+        'DEFAULT_TIMEOUT': 360,
+    },
+}
+
 DATABASES = {
     "default": {
         "ENGINE": "django.db.backends.postgresql",
         "NAME": os.environ.get("POSTGRES_NAME"),
         "USER": os.environ.get("POSTGRES_USER"),
         "PASSWORD": os.environ.get("POSTGRES_PASSWORD"),
-        "HOST": os.environ.get("POSTGRES_HOST"),
+        "HOST": os.environ.get("POSTGRES_HOST", "localhost"),
         "PORT": 5432,
     }
 }
+
+SECRET_KEY = os.environ.get('DJANGO_SECRET_KEY')
