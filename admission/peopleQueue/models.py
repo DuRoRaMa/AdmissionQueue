@@ -6,6 +6,8 @@ class TalonPurposes(models.Model):
     name = models.CharField(max_length=50)
     code = models.CharField(max_length=10)
     description = models.TextField()
+    updated_at = models.DateTimeField(auto_now=True)
+    created_at = models.DateTimeField(auto_now_add=True)
 
     def __str__(self):
         return f"id({self.pk}) ({self.code}) {self.name}"
@@ -16,6 +18,10 @@ class Talon(models.Model):
     ordinal = models.IntegerField()
     purpose = models.ForeignKey(TalonPurposes, on_delete=models.DO_NOTHING)
     compliting = models.BooleanField(default=False)
+    tg_chat_id = models.BigIntegerField(default=None, null=True)
+    comment = models.TextField(null=True, default=None)
+    updated_at = models.DateTimeField(auto_now=True)
+    created_at = models.DateTimeField(auto_now_add=True)
 
     @classmethod
     def get_active_queryset(cls):
@@ -25,10 +31,30 @@ class Talon(models.Model):
         )
 
     def get_last_action(self):
-        return self.logs.order_by("created_at").last()
+        return self.logs.last().action
+
+    async def aget_last_action(self):
+        return (await self.logs.alast()).action
 
     def is_over(self) -> bool:
-        return self.is_cancelled() or self.is_completed()
+        if self.logs.filter(
+                action__in=[
+                    TalonLog.Actions.COMPLETED,
+                    TalonLog.Actions.CANCELLED
+                ]).exists():
+            return True
+        else:
+            return False
+
+    async def ais_over(self) -> bool:
+        if await self.logs.filter(
+                action__in=[
+                    TalonLog.Actions.COMPLETED,
+                    TalonLog.Actions.CANCELLED
+                ]).aexists():
+            return True
+        else:
+            return False
 
     def is_cancelled(self) -> bool:
         if self.logs.filter(action__name="Cancelled").exists():
@@ -43,7 +69,7 @@ class Talon(models.Model):
             return False
 
     def __str__(self):
-        return f"id({self.pk}) {self.name} ({self.purpose.name})"
+        return f"Talon(id({self.pk}) {self.name} ({self.purpose.name}))"
 
 
 class TalonLog(models.Model):
@@ -60,6 +86,7 @@ class TalonLog(models.Model):
     comment = models.TextField(blank=True, default='')
     created_by = models.ForeignKey(
         settings.AUTH_USER_MODEL, related_name="talon_logs", on_delete=models.CASCADE)
+    updated_at = models.DateTimeField(auto_now=True)
     created_at = models.DateTimeField(auto_now_add=True)
 
     def __str__(self):
@@ -68,6 +95,8 @@ class TalonLog(models.Model):
 
 class OperatorLocation(models.Model):
     name = models.CharField(max_length=30)
+    updated_at = models.DateTimeField(auto_now=True)
+    created_at = models.DateTimeField(auto_now_add=True)
 
     def __str__(self):
         return f'id({self.pk})-{self.name}'
@@ -80,6 +109,8 @@ class OperatorSettings(models.Model):
         OperatorLocation, related_name="settings", on_delete=models.SET_NULL, null=True, default=None)
     purposes = models.ManyToManyField(TalonPurposes, blank=True)
     automatic_assignment = models.BooleanField(default=False)
+    updated_at = models.DateTimeField(auto_now=True)
+    created_at = models.DateTimeField(auto_now_add=True)
 
     def __str__(self):
         return f"id({self.pk}) Настройки {self.user.username}"
@@ -89,3 +120,5 @@ class OperatorQueue(models.Model):
     user = models.ForeignKey(
         settings.AUTH_USER_MODEL, related_name="operator_queue", on_delete=models.CASCADE)
     purpose = models.ForeignKey(TalonPurposes, on_delete=models.CASCADE)
+    updated_at = models.DateTimeField(auto_now=True)
+    created_at = models.DateTimeField(auto_now_add=True)
