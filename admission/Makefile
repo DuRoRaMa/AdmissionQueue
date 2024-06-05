@@ -18,6 +18,9 @@ run.bot:
 run.rqworker:
 	$(py) $(manage) rqworker default --with-scheduler
 
+manage:
+	$(py) $(manage) $(ARGS)
+
 collectstatic:
 	$(py) $(manage) collectstatic --no-input
 
