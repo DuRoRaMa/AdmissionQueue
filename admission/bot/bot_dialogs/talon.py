@@ -43,21 +43,21 @@ async def list_getter(event_chat: Chat, **kwargs):
     talons = Talon.objects.order_by(
         '-created_at').filter(tg_chat_id=event_chat.id)
     data = {'talons': []}
-    last_action = await talon.aget_last_action()
-    status = ""
-    if last_action == TalonLog.Actions.COMPLETED:
-        status = 'Завершен'
-    elif last_action == TalonLog.Actions.CANCELLED:
-        status = 'Отменен'
-    elif last_action == TalonLog.Actions.ASSIGNED:
-        status = 'Оператор ожидает Вас'
-    elif last_action == TalonLog.Actions.STARTED:
-        status = 'В процессе'
-    elif last_action == TalonLog.Actions.CREATED:
-        status = 'В ожидании'
-    elif last_action == TalonLog.Actions.REDIRECTED:
-        status = 'В ожидании'
     async for talon in talons:
+        last_action = await talon.aget_last_action()
+        status = ""
+        if last_action == TalonLog.Actions.COMPLETED:
+            status = 'Завершен'
+        elif last_action == TalonLog.Actions.CANCELLED:
+            status = 'Отменен'
+        elif last_action == TalonLog.Actions.ASSIGNED:
+            status = 'Оператор ожидает Вас'
+        elif last_action == TalonLog.Actions.STARTED:
+            status = 'В процессе'
+        elif last_action == TalonLog.Actions.CREATED:
+            status = 'В ожидании'
+        elif last_action == TalonLog.Actions.REDIRECTED:
+            status = 'В ожидании'
         data['talons'].append({
             'id': talon.id,
             'name': talon.name,
