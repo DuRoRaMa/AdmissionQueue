@@ -18,3 +18,4 @@ class Talon(StatesGroup):
 
 class Helper(StatesGroup):
     MAIN = State()
+    LIST = State()

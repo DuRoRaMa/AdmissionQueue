@@ -23,6 +23,7 @@ INSTALLED_APPS = [
     "django_rq",
     "accounts.apps.AccountsConfig",
     "peopleQueue",
+    "helper",
 ]
 
 MIDDLEWARE = [

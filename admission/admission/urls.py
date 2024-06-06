@@ -30,6 +30,7 @@ urlpatterns = [
             re_path(r'^auth/', include('djoser.urls.authtoken')),
             re_path(r'^account/', include('accounts.urls')),
             re_path(r'^queue/', include('peopleQueue.urls')),
+            re_path(r'^helper/', include('helper.urls')),
         ])),
         re_path(f'^schema/', include([
             path(r'', SpectacularAPIView.as_view(), name='schema'),

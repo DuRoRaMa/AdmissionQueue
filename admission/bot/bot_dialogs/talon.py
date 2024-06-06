@@ -56,10 +56,6 @@ async def info_getter(dialog_manager: DialogManager, **kwargs):
     return dialog_manager.dialog_data
 
 
-async def to_subscribing(callback: CallbackQuery, button: Button, manager: DialogManager):
-    manager.switch_to(states.TalonMenu.SUBSCRIBING)
-
-
 async def to_info_window(callback: CallbackQuery, button: Button, manager: SubManager, **kwargs):
     talon_id = int(manager.item_id)
     talon = await Talon.objects.aget(id=talon_id)
