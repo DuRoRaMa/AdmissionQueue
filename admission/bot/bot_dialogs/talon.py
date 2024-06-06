@@ -43,11 +43,25 @@ async def list_getter(event_chat: Chat, **kwargs):
     talons = Talon.objects.order_by(
         '-created_at').filter(tg_chat_id=event_chat.id)
     data = {'talons': []}
+    last_action = await talon.aget_last_action()
+    status = ""
+    if last_action == TalonLog.Actions.COMPLETED:
+        status = 'Завершен'
+    elif last_action == TalonLog.Actions.CANCELLED:
+        status = 'Отменен'
+    elif last_action == TalonLog.Actions.ASSIGNED:
+        status = 'Оператор ожидает Вас'
+    elif last_action == TalonLog.Actions.STARTED:
+        status = 'В процессе'
+    elif last_action == TalonLog.Actions.CREATED:
+        status = 'В ожидании'
+    elif last_action == TalonLog.Actions.REDIRECTED:
+        status = 'В ожидании'
     async for talon in talons:
         data['talons'].append({
             'id': talon.id,
             'name': talon.name,
-            'status': await talon.aget_last_action()
+            'status': status
         })
     return data
 
@@ -65,17 +79,17 @@ async def to_info_window(callback: CallbackQuery, button: Button, manager: SubMa
         '%d.%m.%Y %H:%M')
     last_action = await talon.aget_last_action()
     if last_action == TalonLog.Actions.COMPLETED:
-        status = 'завершен'
+        status = 'Завершен'
     elif last_action == TalonLog.Actions.CANCELLED:
-        status = 'отменен'
+        status = 'Отменен'
     elif last_action == TalonLog.Actions.ASSIGNED:
-        status = 'оператор ожидает Вас'
+        status = 'Оператор ожидает Вас'
     elif last_action == TalonLog.Actions.STARTED:
-        status = 'в процессе'
+        status = 'В процессе'
     elif last_action == TalonLog.Actions.CREATED:
-        status = 'в ожидании'
+        status = 'В ожидании'
     elif last_action == TalonLog.Actions.REDIRECTED:
-        status = 'в ожидании'
+        status = 'В ожидании'
     manager.dialog_data['is_commented'] = talon.comment is not None
     manager.dialog_data['is_not_commented'] = talon.comment is None
     manager.dialog_data['comment'] = talon.comment
