@@ -44,6 +44,10 @@ class Query(graphene.ObjectType):
     talons = graphene.List(TalonType)
     talon_log = graphene.Field(TalonLogType)
     talon_by_id = graphene.Field(TalonType, id=graphene.Int(required=True))
+    count_active_talons = graphene.Int()
+
+    def resolve_count_active_talons(root, info):
+        return models.Talon.get_active_queryset().count()
 
     def resolve_talon_by_id(root, info, id):
         return models.Talon.objects.get(pk=id)
