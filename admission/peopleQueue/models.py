@@ -30,6 +30,12 @@ class Talon(models.Model):
                               TalonLog.Actions.CANCELLED]
         )
 
+    def get_last_log(self):
+        return self.logs.last()
+
+    async def aget_last_log(self):
+        return (await self.logs.alast())
+
     def get_last_action(self):
         return self.logs.last().action
 
