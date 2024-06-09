@@ -14,7 +14,8 @@ class Migration(migrations.Migration):
         migrations.AddField(
             model_name='helprequest',
             name='theme',
-            field=models.ForeignKey(default=1, on_delete=django.db.models.deletion.PROTECT, to='helper.helptheme'),
+            field=models.ForeignKey(
+                on_delete=django.db.models.deletion.PROTECT, to='helper.helptheme'),
             preserve_default=False,
         ),
     ]
