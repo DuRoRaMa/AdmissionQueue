@@ -69,4 +69,4 @@ volumes:
 networks:
   backend:
   aq-proxy:
-    external: true
+    name: aq-proxy
