@@ -14,12 +14,21 @@ from . import serializers
 # Create your views here.
 
 
-class HelperListAPIView(generics.ListAPIView):
+class HelpInfoListAPIView(generics.views.APIView):
     authentication_classes = [SessionAuthentication,
                               BasicAuthentication, BearerAuthentication]
     permission_classes = [IsAuthenticated]
-    queryset = models.Helper.objects.filter(is_active=True)
-    serializer_class = serializers.HelperSerializer
+
+    def get(self, request, *args, **kwargs):
+        helpers = serializers.HelperSerializer(
+            models.Helper.objects.filter(is_active=True),
+            many=True
+        ).data
+        themes = serializers.HelpThemeSerializer(
+            models.HelpTheme.objects.all(),
+            many=True
+        ).data
+        return JsonResponse({'helpers': helpers, 'themes': themes}, status=200)
 
 
 class HelpRequestCreateAPIView(generics.CreateAPIView):
