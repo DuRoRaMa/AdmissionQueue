@@ -108,20 +108,17 @@ class TalonListCreateAPIView(generics.ListCreateAPIView):
         return serializer.save(name=name, ordinal=ordinal)
 
 
-class OperatorLocationListAPIView(generics.ListAPIView):
+class OperatorInfoListAPIView(generics.views.APIView):
     authentication_classes = [SessionAuthentication,
                               BasicAuthentication, BearerAuthentication]
     permission_classes = [IsAuthenticated]
-    queryset = OperatorLocation.objects.all()
-    serializer_class = OperatorLocationSerializer
 
-
-class TalonPurposesListAPIView(generics.ListAPIView):
-    authentication_classes = [SessionAuthentication,
-                              BasicAuthentication, BearerAuthentication]
-    permission_classes = [IsAuthenticated]
-    queryset = TalonPurposes.objects.all()
-    serializer_class = TalonPurposesSerializer
+    def get(self, request):
+        purposes = TalonPurposesSerializer(
+            TalonPurposes.objects.all(), many=True).data
+        locations = OperatorLocationSerializer(
+            OperatorLocation.objects.all(), many=True).data
+        return JsonResponse({'purposes': purposes, 'locations': locations}, status=200)
 
 
 class TabloAPIView(generics.GenericAPIView):
