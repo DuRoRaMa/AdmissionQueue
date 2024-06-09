@@ -69,4 +69,3 @@ volumes:
 networks:
   backend:
   aq-proxy:
-    name: aq-proxy
