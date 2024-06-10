@@ -11,6 +11,14 @@ query tabloStatus {
       id
       action
       createdAt
+      createdBy {
+        id
+        operatorSettings {
+          location {
+            name
+          }
+        }
+      }
     }
   }
   talonLog {
@@ -24,8 +32,8 @@ class AsyncTabloConsumer(AsyncJsonWebsocketConsumer):
     groups = ['tablo']
 
     async def connect(self):
-        result = await database_sync_to_async(
-            lambda: schema.execute(connect_query))()
+        result = await schema.execute_async(connect_query, is_awaitable=lambda _: True)
+        print(result)
         await self.accept()
         await self.send_json({
             "type": "tablo.status",
@@ -37,14 +45,7 @@ class AsyncTabloConsumer(AsyncJsonWebsocketConsumer):
 
     async def talonLog_create(self, event):
         message = event['message']
-        # await self.send_json({
-        #     "type": event['type'],
-        #     "message": result.data
-        # })
-        # await self.send_json({
-        #     "type": event['type'],
-        #     "message": self.scope.get('test', 'NOope')
-        # })
+        print(message)
         await self.send_json({
             "type": event['type'],
             "message": message

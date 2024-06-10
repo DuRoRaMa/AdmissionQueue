@@ -43,6 +43,8 @@ class TalonLogType(DjangoObjectType):
 class Query(graphene.ObjectType):
     talons = graphene.List(TalonType)
     talon_log = graphene.Field(TalonLogType)
+    talon_log_by_id = graphene.Field(
+        TalonLogType, id=graphene.Int(required=True))
     talon_by_id = graphene.Field(TalonType, id=graphene.Int(required=True))
     count_active_talons = graphene.Int()
 
@@ -52,12 +54,13 @@ class Query(graphene.ObjectType):
     def resolve_talon_by_id(root, info, id):
         return models.Talon.objects.get(pk=id)
 
-    def resolve_talons(root, info):
-        return models.Talon.objects.filter(logs__action=models.TalonLog.Actions.STARTED).exclude(logs__action__in=[models.TalonLog.Actions.COMPLETED, models.TalonLog.Actions.CANCELLED])
+    async def resolve_talons(root, info):
+        return models.Talon.get_active_queryset().filter(compliting=True)
 
-    def resolve_talon_log(root, info):
-        if type(info.context) == dict:
-            return info.context.get('talonLog')
+    async def resolve_talon_log_by_id(root, info, id):
+        return models.TalonLog.objects.get(pk=id)
+
+    async def resolve_talon_log(root, info):
         return models.TalonLog.objects.last()
 
 

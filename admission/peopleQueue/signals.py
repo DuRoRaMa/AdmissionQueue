@@ -13,18 +13,20 @@ from .schema import schema
 channel_layer = get_channel_layer()
 
 talonlog_query = """
-{
-  talonLog {
+query getTalonById($id: Int!) {
+  talonLogById(id: $id) {
     id
     talon {
       id
       name
     }
-    action {
-      name
-    }
+    action
     createdBy {
-      id
+      operatorSettings {
+        location {
+          name
+        }
+      }
     }
     createdAt
   }
@@ -46,7 +48,8 @@ async def on_talon_post_save(sender, instance, created, raw, using, update_field
 
 @receiver(post_save, sender=TalonLog)
 async def on_talonlog_post_save(sender, instance: TalonLog, created: bool, raw, using, update_fields, **kwargs):
-    result = await schema.execute_async(talonlog_query, variables={'talonLog': instance}, context={'talonLog': instance})
+    result = await schema.execute_async(talonlog_query, variables={'id': instance.id}, is_awaitable=True)
+    print(result)
     await channel_layer.group_send('tablo', {
         "type": 'talonLog.create',
         'message': result.data
