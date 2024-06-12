@@ -28,7 +28,7 @@ class Talon(models.Model):
         return cls.objects.exclude(
             logs__action__in=[TalonLog.Actions.COMPLETED,
                               TalonLog.Actions.CANCELLED]
-        )
+        ).order_by('-created_at')
 
     def get_last_log(self):
         return self.logs.last()

@@ -4,6 +4,12 @@ from rest_framework import serializers
 from . import models
 
 
+class TalonLogSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = models.TalonLog
+        fields = "__all__"
+
+
 class TalonSerializer(serializers.ModelSerializer):
     class Meta:
         model = models.Talon
@@ -45,12 +51,6 @@ class OperatorSettingsSerializer(serializers.ModelSerializer):
         if validated_data.get("automatic_assignment") and not user.is_assigned_talon():
             ret.user.assign_talon()
         return ret
-
-
-class TalonLogSerializer(serializers.ModelSerializer):
-    class Meta:
-        model = models.TalonLog
-        fields = "__all__"
 
 
 class OperatorLocationSerializer(serializers.ModelSerializer):
