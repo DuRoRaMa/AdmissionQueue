@@ -19,7 +19,7 @@ INSTALLED_APPS = [
     "djoser",
     "drf_spectacular",
     "channels",
-    "graphene_django",
+    "strawberry_django",
     "django_rq",
     "accounts.apps.AccountsConfig",
     "peopleQueue",
@@ -98,4 +98,9 @@ AUTH_USER_MODEL = "accounts.CustomUser"
 
 GRAPHENE = {
     "SCHEMA": "peopleQueue.schema.schema"
+}
+
+STRAWBERRY_DJANGO = {
+    "FIELD_DESCRIPTION_FROM_HELP_TEXT": True,
+    "TYPE_DESCRIPTION_FROM_MODEL_DOCSTRING": True,
 }

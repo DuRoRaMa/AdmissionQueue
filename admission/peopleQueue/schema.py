@@ -1,67 +1,79 @@
-import graphene
-from graphene_django import DjangoObjectType
+import json
+from typing import AsyncGenerator, Optional
+from django.db.models.manager import BaseManager
+import strawberry
+import strawberry.django
+from strawberry.channels.handlers.ws_handler import GraphQLWSConsumer
+import strawberry_django
+from strawberry_django.optimizer import DjangoOptimizerExtension
 from django.contrib.auth import get_user_model
 from . import models
 
 
-class UserType(DjangoObjectType):
-    class Meta:
-        model = get_user_model()
-        fields = ['id', 'username', 'email', 'operator_settings']
+@strawberry_django.type(models.OperatorLocation, fields='__all__')
+class OperatorLocation:
+    pass
 
 
-class OperatorSettingsType(DjangoObjectType):
-    class Meta:
-        model = models.OperatorSettings
-        fields = '__all__'
+@strawberry_django.type(models.OperatorSettings, fields='__all__')
+class OperatorSettings:
+    location: OperatorLocation
 
 
-class OperatorLocationType(DjangoObjectType):
-    class Meta:
-        model = models.OperatorLocation
-        fields = '__all__'
+@strawberry_django.type(get_user_model(), fields=['id', 'username', 'first_name', 'last_name'])
+class User:
+    operator_settings: Optional[OperatorSettings]
 
 
-class TalonType(DjangoObjectType):
-    class Meta:
-        model = models.Talon
-        fields = "__all__"
+@strawberry_django.type(models.TalonPurposes, fields='__all__')
+class TalonPurposes:
+    pass
 
 
-class TalonPurposesType(DjangoObjectType):
-    class Meta:
-        model = models.TalonPurposes
-        fields = "__all__"
+@strawberry_django.type(models.Talon, fields='__all__')
+class Talon:
+    logs: list["TalonLog"]
+    purpose: TalonPurposes
 
 
-class TalonLogType(DjangoObjectType):
-    class Meta:
-        model = models.TalonLog
-        fields = "__all__"
+@strawberry_django.type(models.TalonLog, fields='__all__')
+class TalonLog:
+    talon: Talon
+    created_by: User
 
 
-class Query(graphene.ObjectType):
-    talons = graphene.List(TalonType)
-    talon_log = graphene.Field(TalonLogType)
-    talon_log_by_id = graphene.Field(
-        TalonLogType, id=graphene.Int(required=True))
-    talon_by_id = graphene.Field(TalonType, id=graphene.Int(required=True))
-    count_active_talons = graphene.Int()
-
-    def resolve_count_active_talons(root, info):
-        return models.Talon.get_active_queryset().count()
-
-    def resolve_talon_by_id(root, info, id):
-        return models.Talon.objects.get(pk=id)
-
-    async def resolve_talons(root, info):
-        return models.Talon.get_active_queryset().filter(compliting=True)
-
-    async def resolve_talon_log_by_id(root, info, id):
-        return models.TalonLog.objects.get(pk=id)
-
-    async def resolve_talon_log(root, info):
-        return models.TalonLog.objects.last()
+@strawberry.type
+class Subscription:
+    @strawberry.subscription
+    async def talonLogs(self, info: strawberry.Info) -> AsyncGenerator[TalonLog, None]:
+        ws: GraphQLWSConsumer = info.context["ws"]
+        channel_layer = ws.channel_layer
+        await channel_layer.group_add("tablo", ws.channel_name)  # type: ignore
+        async with ws.listen_to_channel('talonLog.create', groups=['tablo']) as cm:
+            async for message in cm:
+                yield await models.TalonLog.objects.aget(pk=message['message'])
 
 
-schema = graphene.Schema(query=Query)
+@strawberry.type
+class Query:
+    talons: list[Talon] = strawberry_django.field()
+    talon: Talon = strawberry_django.field()
+
+    @strawberry.field
+    def tabloTalons(self) -> list[Talon]:
+        return models.Talon.objects.filter(compliting=True).order_by('-updated_at')
+
+    @strawberry.field
+    async def countActiveTalons(self) -> int:
+        return await models.Talon.objects.filter(compliting=True).acount()
+
+    @strawberry.field
+    async def lastTalonLog(self) -> TalonLog:
+        return await models.TalonLog.objects.alast()  # type: ignore
+
+
+schema = strawberry.Schema(
+    query=Query,
+    subscription=Subscription,
+    extensions=[DjangoOptimizerExtension]
+)
