@@ -22,16 +22,16 @@ class OperatorTalonActionAPIView(APIView):
 
     def get(self, request):
         action = request.GET.get('action')
+        res = request.user.get_current_operator_talon()
         if action is None:
             return Response(status=400)
-        elif action == "next":
+        elif action == "next" and res is None:
             talon = request.user.assign_talon()
             if talon:
                 return JsonResponse(data={'id': talon.id}, status=200)
             else:
                 return JsonResponse(data={'id': None}, status=200)
         elif action == "current":
-            res = request.user.get_current_operator_talon()
             if res:
                 return JsonResponse(data={'id': res.id}, status=200)
             return JsonResponse(data={'id': None}, status=200)
@@ -126,6 +126,7 @@ class TabloAPIView(generics.GenericAPIView):
 
     def get(self, request):
         q = Talon.get_active_queryset()
+        # type: ignore
         return Response(data=TalonLogSerializer(q.logs(), many=True).data, status=200)
 
 
