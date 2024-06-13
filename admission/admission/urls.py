@@ -14,6 +14,7 @@ Including another URLconf
     1. Import the include() function: from django.urls import include, path
     2. Add a URL to urlpatterns:  path('blog/', include('blog.urls'))
 """
+from django.conf import settings
 from django.contrib import admin
 from django.urls import include, re_path, path
 from django.views.decorators.csrf import csrf_exempt
@@ -25,6 +26,7 @@ urlpatterns = [
     re_path(r'^admin/', admin.site.urls),
     path('django-rq/', include('django_rq.urls')),
     re_path(r'^graphql', csrf_exempt(AsyncGraphQLView.as_view(
+        graphiql=settings.DEBUG,
         schema=schema,
         subscriptions_enabled=True
     ))),
