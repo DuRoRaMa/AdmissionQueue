@@ -16,9 +16,9 @@ CORS_ALLOWED_ORIGINS = [
     'http://127.0.0.1:8000',
 ]
 # SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https")
-# CSRF_TRUSTED_ORIGINS = [
-#     'https://pavlyuk-it.ru',
-# ]
+CSRF_TRUSTED_ORIGINS = [
+    'https://pavlyuk-it.ru',
+]
 SESSION_COOKIE_SECURE = False
 CSRF_COOKIE_SECURE = False
 
