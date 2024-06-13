@@ -31,7 +31,7 @@ urlpatterns = [
     re_path(r'api/', include([
         re_path(r'^v1/', include([
             re_path(r'^auth/', include('djoser.urls')),
-            re_path(r'^auth/', csrf_exempt(include('djoser.urls.authtoken'))),
+            re_path(r'^auth/', include('djoser.urls.authtoken')),
             re_path(r'^account/', include('accounts.urls')),
             re_path(r'^queue/', include('peopleQueue.urls')),
             re_path(r'^helper/', include('helper.urls')),
