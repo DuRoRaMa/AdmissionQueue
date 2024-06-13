@@ -20,7 +20,7 @@ CSRF_TRUSTED_ORIGINS = [
     'https://pavlyuk-it.ru',
 ]
 SESSION_COOKIE_SECURE = False
-CSRF_COOKIE_SECURE = False
+CSRF_COOKIE_SECURE = True
 
 AUTH_PASSWORD_VALIDATORS = [
     {
