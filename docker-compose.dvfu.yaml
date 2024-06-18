@@ -1,0 +1,72 @@
+version: "3.8"
+services:
+  backend:
+    build: .
+    container_name: aq-backend
+    ports:
+      - 8000:8000
+    networks:
+      - backend
+      - aq-proxy
+    env_file:
+      - ${ENV_FILE}
+    environment:
+      - DJANGO_SETTINGS_MODULE=admission.settings.dvfu
+    depends_on:
+      - redis
+      - pgdb
+      - rq
+      - bot
+  bot:
+    build: .
+    container_name: aq-bot
+    command: make run.bot
+    ports:
+      - 8001:8001
+    networks:
+      - aq-proxy
+      - backend
+    env_file: ${ENV_FILE}
+    depends_on:
+      - redis
+      - pgdb
+  rq:
+    build: .
+    container_name: aq-rqworker
+    command: make run.rqworker
+    env_file: ${ENV_FILE}
+    networks:
+      - backend
+    depends_on:
+      - redis
+  pgdb:
+    image: postgres:latest
+    env_file:
+      - ${ENV_FILE}
+    container_name: pgdb
+    networks:
+      - backend
+    expose:
+      - 5432
+    volumes:
+      - pgdbdata:/var/lib/postgresql/data/
+  redis:
+    image: redis:latest
+    container_name: redis
+    restart: always
+    networks:
+      - backend
+    expose:
+      - 6379
+    volumes:
+      - "cache:/data"
+
+volumes:
+  pgdbdata: null
+  cache:
+    driver: local
+
+networks:
+  backend:
+  aq-proxy:
+    name: aq-proxy
