@@ -103,8 +103,9 @@ class TalonListCreateAPIView(generics.ListCreateAPIView):
         f = Talon.get_active_queryset().filter(purpose=d.get('purpose')).last()
         if f:
             ordinal += f.ordinal
-        name = f"{d.get('purpose').code}-{
-            "{:2d}".format(ordinal).replace(' ', '0')}"
+        code = d.get('purpose').code
+        num = "{:2d}".format(ordinal).replace(' ', '0')
+        name = f"{code} - {num}"
         return serializer.save(name=name, ordinal=ordinal)
 
 

@@ -17,7 +17,7 @@ class OperatorLocation:
 
 @strawberry_django.type(models.OperatorSettings, fields='__all__')
 class OperatorSettings:
-    location: OperatorLocation
+    location: Optional[OperatorLocation]
 
 
 @strawberry_django.type(get_user_model(), fields=['id', 'username', 'first_name', 'last_name'])
