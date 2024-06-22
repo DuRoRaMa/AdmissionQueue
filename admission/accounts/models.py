@@ -25,6 +25,20 @@ class CustomUser(AbstractUser):
         except TalonLog.DoesNotExist:
             return None
 
+    async def aget_current_operator_talon(self) -> Talon | None:
+        try:
+            res = await TalonLog.objects.exclude(
+                action__in=[TalonLog.Actions.COMPLETED,
+                            TalonLog.Actions.CANCELLED]).filter(
+                                talon__compliting=True,
+                                action=TalonLog.Actions.ASSIGNED,
+                                created_by=self
+            ).select_related('talon').aget()
+
+            return res.talon
+        except TalonLog.DoesNotExist:
+            return None
+
     def is_assigned_talon(self):
         if self.get_current_operator_talon():
             return True
