@@ -2,38 +2,39 @@ import logging
 from django.http import JsonResponse
 from rest_framework import generics, status
 from rest_framework.response import Response
+from rest_framework.request import Request
 from rest_framework.views import APIView
 from rest_framework.authentication import SessionAuthentication, BasicAuthentication
 from rest_framework.permissions import IsAuthenticated
 from channels.layers import get_channel_layer
+from asgiref.sync import async_to_sync
 
 from accounts.authentication import BearerAuthentication
 
 from .serializers import OperatorLocationSerializer, OperatorSettingsSerializer, TalonPurposesSerializer, TalonSerializer, TalonLogSerializer
-from .models import OperatorLocation, OperatorSettings, Talon, TalonLog, TalonPurposes
+from .models import OperatorLocation, OperatorQueue, OperatorSettings, Talon, TalonLog, TalonPurposes
 
 channel_layer = get_channel_layer()
 
 
 class OperatorTalonActionAPIView(APIView):
     authentication_classes = [SessionAuthentication,
-                              BasicAuthentication, BearerAuthentication]
+                              BasicAuthentication,
+                              BearerAuthentication]
     permission_classes = [IsAuthenticated]
 
-    def get(self, request):
+    def get(self, request: Request) -> JsonResponse | Response:
         action = request.GET.get('action')
-        res = request.user.get_current_operator_talon()
-        if action is None:
-            return Response(status=400)
-        elif action == "next" and res is None:
+        talon = request.user.get_current_operator_talon()
+        if action == "next" and talon is None:
             talon = request.user.assign_talon()
             if talon:
                 return JsonResponse(data={'id': talon.id}, status=200)
             else:
                 return JsonResponse(data={'id': None}, status=200)
         elif action == "current":
-            if res:
-                return JsonResponse(data={'id': res.id}, status=200)
+            if talon:
+                return JsonResponse(data={'id': talon.id}, status=200)
             return JsonResponse(data={'id': None}, status=200)
         else:
             return Response(status=400)
@@ -41,7 +42,10 @@ class OperatorTalonActionAPIView(APIView):
     def post(self, request):
         action = request.GET.get('action')
         logging.info(action)
+        settings = OperatorSettings.objects.get(user=request.user)
         talon = request.user.get_current_operator_talon()
+        if not talon:
+            return Response(status=400)
         if action == 'start':
             TalonLog(
                 talon=talon,
@@ -57,8 +61,6 @@ class OperatorTalonActionAPIView(APIView):
                 action=TalonLog.Actions.CANCELLED,
                 created_by=request.user
             ).save()
-            if request.user.operator_settings.automatic_assignment:
-                request.user.assign_talon()
             return Response(status=200)
         elif action == 'complete':
             talon.compliting = False
@@ -68,8 +70,21 @@ class OperatorTalonActionAPIView(APIView):
                 action=TalonLog.Actions.COMPLETED,
                 created_by=request.user
             ).save()
-            if request.user.operator_settings.automatic_assignment:
-                request.user.assign_talon()
+            return Response(status=200)
+        elif action == 'notify':
+            log: TalonLog | None = TalonLog.objects.filter(
+                talon=talon,
+                action=TalonLog.Actions.ASSIGNED
+            ).last()
+            if log is None:
+                return Response(status=400)
+            async_to_sync(channel_layer.group_send)(
+                'tablo',
+                {
+                    "type": 'talonLog.create',
+                    'message': log.pk
+                }
+            )
             return Response(status=200)
         else:
             return Response(status=400)
@@ -110,10 +125,6 @@ class TalonListCreateAPIView(generics.ListCreateAPIView):
 
 
 class OperatorInfoListAPIView(generics.views.APIView):
-    authentication_classes = [SessionAuthentication,
-                              BasicAuthentication, BearerAuthentication]
-    permission_classes = [IsAuthenticated]
-
     def get(self, request):
         purposes = TalonPurposesSerializer(
             TalonPurposes.objects.all(), many=True).data

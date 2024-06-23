@@ -113,7 +113,8 @@ class OperatorSettings(models.Model):
         settings.AUTH_USER_MODEL, related_name="operator_settings", on_delete=models.CASCADE)
     location = models.OneToOneField(
         OperatorLocation, related_name="settings", on_delete=models.SET_NULL, null=True, default=None)
-    purposes = models.ManyToManyField(TalonPurposes, blank=True)
+    purposes = models.ManyToManyField(
+        TalonPurposes, related_name='operator_settings', blank=True)
     automatic_assignment = models.BooleanField(default=False)
     updated_at = models.DateTimeField(auto_now=True)
     created_at = models.DateTimeField(auto_now_add=True)

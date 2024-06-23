@@ -1,5 +1,6 @@
 import django
 import os
+
 if True:
     os.environ.setdefault('DJANGO_SETTINGS_MODULE',
                           'admission.settings.local')
@@ -12,10 +13,11 @@ from aiogram.types import Message, BotCommand
 from aiogram.types.bot_command_scope_default import BotCommandScopeDefault
 from aiogram.webhook.aiohttp_server import SimpleRequestHandler, setup_application
 from aiogram.fsm.storage.redis import RedisStorage, DefaultKeyBuilder
-from aiogram.filters import ExceptionTypeFilter
+from aiogram.filters import ExceptionTypeFilter, CommandStart
 from aiogram_dialog import DialogManager, StartMode, setup_dialogs, ShowMode
 from aiogram_dialog.api.exceptions import UnknownIntent, UnknownState
 from aiohttp import web
+from peopleQueue.models import Talon
 
 from .config.bot import TELEGRAM_API_TOKEN, REDIS_URL, BASE_WEBHOOK_URL, WEB_SERVER_PORT, WEBHOOK_PATH
 from .bot_dialogs import states
@@ -46,6 +48,26 @@ async def on_startup(bot: Bot) -> None:
 
 
 async def start(message: Message, dialog_manager: DialogManager):
+    await dialog_manager.start(states.TalonMenu.GREETINGS, mode=StartMode.RESET_STACK)
+
+
+async def start_deep_link(message: Message, dialog_manager: DialogManager):
+    args = message.text.removeprefix("/start ")
+    try:
+        talon = await Talon.objects.aget(id=int(args))
+    except Talon.DoesNotExist:
+        await dialog_manager.start(states.TalonMenu.GREETINGS, mode=StartMode.RESET_STACK)
+        return
+    except ValueError:
+        await dialog_manager.start(states.TalonMenu.GREETINGS, mode=StartMode.RESET_STACK)
+        return
+    if talon.tg_chat_id:
+        if talon.tg_chat_id != message.chat.id:
+            await dialog_manager.start(states.TalonMenu.TALON_IS_BUSY, mode=StartMode.RESET_STACK)
+            return
+    talon.tg_chat_id = message.chat.id
+    await talon.asave()
+    await message.answer(f"Вы подписались на обновления талона {talon.name}")
     await dialog_manager.start(states.TalonMenu.GREETINGS, mode=StartMode.RESET_STACK)
 
 
@@ -81,6 +103,7 @@ def setup_dp():
     dp = Dispatcher(storage=storage)
     dp.startup.register(on_startup)
     dp.message.register(start, F.text == "/start")
+    dp.message.register(start_deep_link, F.text.startswith("/start"))
     dp.message.register(start_helper, F.text == "/helper")
     dp.callback_query.register(*callback_query)
     dp.errors.register(

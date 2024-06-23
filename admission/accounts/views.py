@@ -1,4 +1,5 @@
 # -*- coding: utf-8 -*-
+from django.http import JsonResponse
 from rest_framework import views, generics
 from rest_framework.response import Response
 from rest_framework.authentication import SessionAuthentication, BasicAuthentication
@@ -18,4 +19,5 @@ class UserRetriaveAPIView(views.APIView):
     serializer_class = CustomUserSerializer
 
     def get(self, request):
-        return Response({"name": "hui"})
+        user = request.user
+        return JsonResponse(data=self.serializer_class(user).data, status=200)
