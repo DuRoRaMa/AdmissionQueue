@@ -3,6 +3,8 @@ from aiogram import Bot
 from aiogram.types.inline_keyboard_markup import InlineKeyboardMarkup
 from aiogram.types.inline_keyboard_button import InlineKeyboardButton
 from django_rq import job
+
+from peopleQueue.models import OperatorSettings
 from . import models
 
 bot = Bot(getenv("BOT_TOKEN"))
@@ -13,6 +15,11 @@ async def send_request_to_tg_chat(request_id: int):
     request = await models.HelpRequest.objects.select_related('helper', 'created_by', 'theme').aget(pk=request_id)
     helper = request.helper
     created_by = request.created_by
+    from_by = created_by.get_full_name()
+    settings = await OperatorSettings.objects.select_related('location').aget(user=created_by)
+    if settings:
+        if settings.location:
+            from_by = f"{from_by} (Стол {settings.location.name})"
     priority_emoji = {'Low': '🟢', 'Medium': '🟡', 'High': '🔴'}
     priority = request.get_priority_display(
     ) + priority_emoji[request.priority]
@@ -24,7 +31,7 @@ async def send_request_to_tg_chat(request_id: int):
             ]
         ]
     )
-    text = f"От: {created_by.get_full_name()}\nСрочность: {priority}\nТема: {
+    text = f"От: {from_by}\nСрочность: {priority}\nТема: {
         request.theme}\nТекст:\n{request.text}"
     await bot.send_message(
         helper.tg_chat_id,
