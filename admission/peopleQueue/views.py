@@ -125,10 +125,6 @@ class TalonListCreateAPIView(generics.ListCreateAPIView):
 
 
 class OperatorInfoListAPIView(generics.views.APIView):
-    authentication_classes = [SessionAuthentication,
-                              BasicAuthentication, BearerAuthentication]
-    permission_classes = [IsAuthenticated]
-
     def get(self, request):
         purposes = TalonPurposesSerializer(
             TalonPurposes.objects.all(), many=True).data

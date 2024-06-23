@@ -5,11 +5,11 @@ from . import views
 
 app_name = 'queue'
 urlpatterns = [
+    re_path(r"^info", views.OperatorInfoListAPIView.as_view()),
     re_path(r"^operator/talon/action",
             views.OperatorTalonActionAPIView.as_view()),
     re_path(r"^talon/", views.TalonListCreateAPIView.as_view()),
     re_path(r"^operator/", include([
-        re_path(r"^info", views.OperatorInfoListAPIView.as_view()),
         re_path(r"^settings", views.OperatorSettingsAPIView.as_view(),
                 name='operator-settings'),
     ])),
