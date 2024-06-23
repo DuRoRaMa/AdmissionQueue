@@ -12,7 +12,7 @@ from asgiref.sync import async_to_sync
 from accounts.authentication import BearerAuthentication
 
 from .serializers import OperatorLocationSerializer, OperatorSettingsSerializer, TalonPurposesSerializer, TalonSerializer, TalonLogSerializer
-from .models import OperatorLocation, OperatorSettings, Talon, TalonLog, TalonPurposes
+from .models import OperatorLocation, OperatorQueue, OperatorSettings, Talon, TalonLog, TalonPurposes
 
 channel_layer = get_channel_layer()
 
@@ -61,8 +61,6 @@ class OperatorTalonActionAPIView(APIView):
                 action=TalonLog.Actions.CANCELLED,
                 created_by=request.user
             ).save()
-            if settings.automatic_assignment:
-                request.user.assign_talon()
             return Response(status=200)
         elif action == 'complete':
             talon.compliting = False
@@ -72,8 +70,6 @@ class OperatorTalonActionAPIView(APIView):
                 action=TalonLog.Actions.COMPLETED,
                 created_by=request.user
             ).save()
-            if settings.automatic_assignment:
-                request.user.assign_talon()
             return Response(status=200)
         elif action == 'notify':
             log: TalonLog | None = TalonLog.objects.filter(

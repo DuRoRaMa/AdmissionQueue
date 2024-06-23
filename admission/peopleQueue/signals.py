@@ -5,22 +5,11 @@ from django.contrib.auth import get_user_model
 from channels.layers import get_channel_layer
 from datetime import timedelta
 from rq import Queue
-from .tasks import send_to_admin, send_to_tg_chat, send_to_tablo
+from .tasks import send_to_tg_chat, send_to_tablo
 
-from .models import OperatorLocation, TalonLog, Talon, OperatorQueue
+from .models import OperatorLocation, TalonLog
 
 channel_layer = get_channel_layer()
-
-@receiver(post_save, sender=Talon)
-async def on_talon_post_save(sender, instance, created, raw, using, update_fields, **kwargs):
-    # if OQ exist then assing talon for this user
-    # else ignore. For this talon doesnt exist suitable user
-    if created:
-        OQ = await OperatorQueue.objects.filter(purpose=instance.purpose).select_related('user').afirst()
-        if OQ:
-            user = OQ.user
-            user.aassign_talon()
-        send_to_admin.delay('Talon created', instance)
 
 
 @receiver(post_save, sender=TalonLog)
@@ -29,12 +18,8 @@ async def on_talonlog_post_save(sender, instance: TalonLog, created: bool, raw, 
     queue.enqueue_in(
         timedelta(milliseconds=100),
         send_to_tablo,
-        instance.id
+        instance.pk
     )
-    # await channel_layer.group_send('tablo', {
-    #     "type": 'talonLog.create',
-    #     'message': instance.id
-    # })
     talon = instance.talon
     if talon.tg_chat_id:
         minutes = 0
@@ -53,7 +38,7 @@ async def on_talonlog_post_save(sender, instance: TalonLog, created: bool, raw, 
                 settings=operator_settings.pk
             )
             text = f"""
-            Статус талона {talon.name} обновлен!\nОператор ожидает вас на локации: {location.name}"""
+            Статус талона {talon.name} обновлен!\nОператор ожидает вас за столом {location.name}"""
         elif instance.action == TalonLog.Actions.CANCELLED:
             text = f"""
             Статус талона {talon.name} обновлен!\nК сожалению Ваш талон больше недействителен.\nЧтобы взять новый талон обратитесь, пожалуйста, на стойку ресепшена."""

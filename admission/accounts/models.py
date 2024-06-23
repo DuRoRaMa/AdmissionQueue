@@ -1,10 +1,22 @@
 from django.db import models
 from django.contrib.auth.models import AbstractUser
 
-from peopleQueue.models import Talon, TalonLog
+from peopleQueue.models import OperatorSettings, Talon, TalonLog, TalonPurposes
 
 
 class CustomUser(AbstractUser):
+    @property
+    def is_busy(self):
+        if self.get_current_operator_talon():
+            return True
+        return False
+
+    @property
+    async def ais_busy(self):
+        if await self.aget_current_operator_talon():
+            return True
+        return False
+
     def get_started_talons(self):
         return self.talon_logs.filter(action__name="Started").values("talon")
 
@@ -59,9 +71,12 @@ class CustomUser(AbstractUser):
         return talon
 
     async def aassign_talon(self):
+        settings = await OperatorSettings.objects.aget(user=self)
+        purposes = [purpose.pk async for purpose in TalonPurposes.objects.filter(operator_settings=settings)]
+        # purposes = (await OperatorSettings.objects.prefetch_related('purposes').aget(user=self)).purposes.values_list('pk', flat=True)
         talon = await Talon.get_active_queryset().filter(
             compliting=False,
-            purpose__in=self.operator_settings.purposes.all()
+            purpose__in=purposes
         ).afirst()
         if talon is None:
             return None
