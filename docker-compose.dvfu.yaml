@@ -27,6 +27,8 @@ services:
       - aq-proxy
       - backend
     env_file: ${ENV_FILE}
+    environment:
+      - BASE_URL=https://aq.dvfu.ru
     depends_on:
       - redis
       - pgdb
