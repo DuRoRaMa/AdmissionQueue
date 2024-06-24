@@ -115,7 +115,11 @@ class TalonListCreateAPIView(generics.ListCreateAPIView):
     def perform_create(self, serializer):
         d = serializer.validated_data
         ordinal = 1
-        f = Talon.get_active_queryset().filter(purpose=d.get('purpose')).last()
+        f = Talon.objects.exclude(
+            logs__action__in=[TalonLog.Actions.COMPLETED,
+                              TalonLog.Actions.CANCELLED]
+        ).filter(purpose=d.get('purpose')).last()
+
         if f:
             ordinal += f.ordinal
         code = d.get('purpose').code
