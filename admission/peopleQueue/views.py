@@ -1,3 +1,4 @@
+import datetime
 import logging
 from django.http import JsonResponse
 from rest_framework import generics, status
@@ -115,13 +116,17 @@ class TalonListCreateAPIView(generics.ListCreateAPIView):
     def perform_create(self, serializer):
         d = serializer.validated_data
         ordinal = 1
-        f = Talon.objects.exclude(
-            logs__action__in=[TalonLog.Actions.COMPLETED,
-                              TalonLog.Actions.CANCELLED]
-        ).filter(purpose=d.get('purpose')).last()
-
+        today = datetime.datetime.now()
+        f = Talon.objects.filter(
+            purpose=d.get('purpose'),
+            created_at__gt=datetime.datetime(
+                year=today.year,
+                month=today.month,
+                day=today.day
+            )
+        ).last()
         if f:
-            ordinal += f.ordinal
+            ordinal += f.ordinal % 99
         code = d.get('purpose').code
         num = "{:2d}".format(ordinal).replace(' ', '0')
         name = f"{code} - {num}"

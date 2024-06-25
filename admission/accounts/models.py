@@ -57,7 +57,9 @@ class CustomUser(AbstractUser):
         return False
 
     def assign_talon(self):
-        talon = Talon.get_active_queryset().filter(
+        talon = Talon.objects.exclude(
+            logs__action__in=[TalonLog.Actions.COMPLETED,
+                              TalonLog.Actions.CANCELLED]).filter(
             compliting=False,
             purpose__in=self.operator_settings.purposes.all()
         ).first()
@@ -74,7 +76,9 @@ class CustomUser(AbstractUser):
         settings = await OperatorSettings.objects.aget(user=self)
         purposes = [purpose.pk async for purpose in TalonPurposes.objects.filter(operator_settings=settings)]
         # purposes = (await OperatorSettings.objects.prefetch_related('purposes').aget(user=self)).purposes.values_list('pk', flat=True)
-        talon = await Talon.get_active_queryset().filter(
+        talon = await Talon.objects.exclude(
+            action__in=[TalonLog.Actions.COMPLETED,
+                        TalonLog.Actions.CANCELLED]).filter(
             compliting=False,
             purpose__in=purposes
         ).afirst()
