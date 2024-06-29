@@ -1,6 +1,7 @@
 import datetime
 import logging
 from django.http import JsonResponse
+from django.db.models import Q, Count, Min, Max
 from rest_framework import generics, status
 from rest_framework.response import Response
 from rest_framework.request import Request
@@ -11,11 +12,61 @@ from channels.layers import get_channel_layer
 from asgiref.sync import async_to_sync
 
 from accounts.authentication import BearerAuthentication
+from accounts.models import CustomUser
 
 from .serializers import OperatorLocationSerializer, OperatorSettingsSerializer, TalonPurposesSerializer, TalonSerializer, TalonLogSerializer
 from .models import OperatorLocation, OperatorQueue, OperatorSettings, Talon, TalonLog, TalonPurposes
 
 channel_layer = get_channel_layer()
+
+
+class OperatorStatsAPIView(APIView):
+    authentication_classes = [SessionAuthentication,
+                              BasicAuthentication,
+                              BearerAuthentication]
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request: Request) -> JsonResponse | Response:
+        user = request.user
+        current_year = datetime.datetime.now().year
+        query = TalonLog.objects.aggregate(
+            mi=Min('created_at'),
+            ma=Max('created_at')
+        )
+        min_date: datetime.datetime = query['mi']
+        max_date: datetime.datetime = query['ma']
+        ps = list(map(lambda x: (x['pk'], x['name']),
+                  TalonPurposes.objects.values('pk', 'name')))
+        obj = Talon.objects.filter(
+            logs__action__in=["Completed"],
+            logs__created_by=user,
+            created_at__year=current_year
+        )
+        ans = [
+            {
+                'name': name,
+                'data': [
+                    [
+                        (min_date + datetime.timedelta(days=j)).strftime("%Y-%m-%d"),
+                        obj.filter(
+                            purpose=i,
+                            created_at__day=(
+                                min_date + datetime.timedelta(days=j)).day,
+                            created_at__month=(
+                                min_date + datetime.timedelta(days=j)).month
+                        ).count()
+                    ] for j in range((max_date - min_date).days + 1)
+                ]
+            } for i, name in ps
+        ]
+        summa = {
+            'name': 'Сумма',
+            'data': [
+                [(min_date + datetime.timedelta(days=j)).strftime("%Y-%m-%d"), sum([d['data'][j][1] for d in ans])] for j in range((max_date - min_date).days + 1)
+            ]
+        }
+        ans.append(summa)
+        return JsonResponse(data=ans, status=200, safe=False)
 
 
 class OperatorTalonActionAPIView(APIView):
