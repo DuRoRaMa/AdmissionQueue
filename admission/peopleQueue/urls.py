@@ -12,6 +12,8 @@ urlpatterns = [
     re_path(r"^operator/", include([
         re_path(r"^settings", views.OperatorSettingsAPIView.as_view(),
                 name='operator-settings'),
+        re_path(r"^stats", views.OperatorStatsAPIView.as_view(),
+                name='operator-stats'),
     ])),
     re_path(r"^tablo/", views.TabloAPIView().as_view())
 ]
