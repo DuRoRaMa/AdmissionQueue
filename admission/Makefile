@@ -21,6 +21,9 @@ run.rqworker:
 manage:
 	$(py) $(manage) $(ARGS)
 
+shell:
+	$(py) $(manage) shell
+
 collectstatic:
 	$(py) $(manage) collectstatic --no-input
 
