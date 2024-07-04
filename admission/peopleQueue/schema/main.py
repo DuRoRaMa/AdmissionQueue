@@ -1,13 +1,11 @@
-import json
 from typing import AsyncGenerator, Optional
 import strawberry
 from strawberry import auto
 import strawberry.django
 from strawberry.channels.handlers.ws_handler import GraphQLWSConsumer
 import strawberry_django
-from strawberry_django.optimizer import DjangoOptimizerExtension
 from django.contrib.auth import get_user_model
-from . import models
+from .. import models
 
 
 @strawberry_django.type(models.OperatorLocation, fields='__all__')
@@ -96,10 +94,3 @@ class Query:
     @ strawberry.field
     async def lastTalonLog(self) -> TalonLog:
         return await models.TalonLog.objects.alast()  # type: ignore
-
-
-schema = strawberry.Schema(
-    query=Query,
-    subscription=Subscription,
-    extensions=[DjangoOptimizerExtension]
-)
