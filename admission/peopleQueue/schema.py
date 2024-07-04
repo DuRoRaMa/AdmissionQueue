@@ -1,7 +1,7 @@
 import json
 from typing import AsyncGenerator, Optional
-from django.db.models.manager import BaseManager
 import strawberry
+from strawberry import auto
 import strawberry.django
 from strawberry.channels.handlers.ws_handler import GraphQLWSConsumer
 import strawberry_django
@@ -36,7 +36,14 @@ class Talon:
     purpose: TalonPurposes
 
 
-@strawberry_django.type(models.Talon, pagination=True, fields='__all__')
+@strawberry_django.order(models.Talon)
+class HistoryTalonOrder:
+    id: auto
+    name: auto
+    created_at: auto
+
+
+@strawberry_django.type(models.Talon, pagination=True, order=HistoryTalonOrder, fields='__all__')
 class HistoryTalon:
     logs: list["TalonLog"]
     purpose: TalonPurposes
@@ -81,6 +88,10 @@ class Query:
     @strawberry_django.field
     async def countActiveTalons(self) -> int:
         return await models.Talon.objects.filter(compliting=False).exclude(logs__action__in=[models.TalonLog.Actions.COMPLETED, models.TalonLog.Actions.CANCELLED]).acount()
+
+    @strawberry_django.field
+    async def countHistoryTalons(self) -> int:
+        return await models.Talon.objects.filter(logs__action__in=[models.TalonLog.Actions.COMPLETED, models.TalonLog.Actions.CANCELLED]).acount()
 
     @ strawberry.field
     async def lastTalonLog(self) -> TalonLog:
