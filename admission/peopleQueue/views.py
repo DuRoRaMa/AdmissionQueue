@@ -1,7 +1,8 @@
 import datetime
 import logging
 from django.http import JsonResponse
-from django.db.models import Q, Count, Min, Max
+from django.db.models import Min, Max
+from django.contrib.auth.models import Group
 from rest_framework import generics, status
 from rest_framework.response import Response
 from rest_framework.request import Request
@@ -15,7 +16,7 @@ from accounts.authentication import BearerAuthentication
 from accounts.models import CustomUser
 
 from .serializers import OperatorLocationSerializer, OperatorSettingsSerializer, TalonPurposesSerializer, TalonSerializer, TalonLogSerializer
-from .models import OperatorLocation, OperatorQueue, OperatorSettings, Talon, TalonLog, TalonPurposes
+from .models import OperatorLocation, OperatorSettings, Talon, TalonLog, TalonPurposes
 
 channel_layer = get_channel_layer()
 
@@ -77,16 +78,17 @@ class OperatorTalonActionAPIView(APIView):
 
     def get(self, request: Request) -> JsonResponse | Response:
         action = request.GET.get('action')
-        talon = request.user.get_current_operator_talon()
+        user: CustomUser = request.user
+        talon = user.get_current_operator_talon()
         if action == "next" and talon is None:
-            talon = request.user.assign_talon()
+            talon = user.assign_talon()
             if talon:
-                return JsonResponse(data={'id': talon.id}, status=200)
+                return JsonResponse(data={'id': talon.pk}, status=200)
             else:
                 return JsonResponse(data={'id': None}, status=200)
         elif action == "current":
             if talon:
-                return JsonResponse(data={'id': talon.id}, status=200)
+                return JsonResponse(data={'id': talon.pk}, status=200)
             return JsonResponse(data={'id': None}, status=200)
         else:
             return Response(status=400)
@@ -140,6 +142,34 @@ class OperatorTalonActionAPIView(APIView):
             return Response(status=200)
         else:
             return Response(status=400)
+
+
+class RegistratorTalonActionAPIView(APIView):
+    authentication_classes = [SessionAuthentication,
+                              BasicAuthentication,
+                              BearerAuthentication]
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request: Request) -> Response:
+        user: CustomUser = request.user
+        pk = request.GET.get('id')
+        if not user.groups.contains(Group.objects.get(name="Registrators")):
+            return Response(status=403, data={'detail': 'Недостаточно прав'})
+        try:
+            print(pk)
+            talon = Talon.objects.get(pk=pk)
+        except Talon.DoesNotExist:
+            return Response(status=404, data={'detail': 'Талон не найден'})
+        if talon.compliting:
+            return Response(status=400, data={'detail': 'Талон в обработке'})
+        if talon.logs.filter(action=TalonLog.Actions.CANCELLED).exists():
+            return Response(status=400, data={'detail': 'Талон уже отменен'})
+        TalonLog(
+            talon=talon,
+            action=TalonLog.Actions.CANCELLED,
+            created_by=user
+        ).save()
+        return Response(status=200, data={'detail': f'Талон {talon.name} отменен'})
 
 
 class TalonListCreateAPIView(generics.ListCreateAPIView):
