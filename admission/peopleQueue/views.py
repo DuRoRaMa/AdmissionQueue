@@ -1,7 +1,7 @@
 import datetime
 import logging
 from django.http import JsonResponse
-from django.db.models import Min, Max
+from django.db.models import Min, Max, Count, F, Q, FilteredRelation
 from django.contrib.auth.models import Group
 from rest_framework import generics, status
 from rest_framework.response import Response
@@ -263,3 +263,47 @@ class OperatorSettingsAPIView(generics.GenericAPIView):
         serializer.is_valid(raise_exception=True)
         serializer.save()
         return Response(status=status.HTTP_200_OK)
+
+
+class DashboardAPIView(APIView):
+    authentication_classes = [SessionAuthentication,
+                              BasicAuthentication,
+                              BearerAuthentication]
+    permission_classes = [IsAuthenticated]
+
+    def get_totalTalonPurposes(self, start, end):
+        totalTalonPurposes = [i.c for i in TalonPurposes.objects.annotate(a=FilteredRelation('talon', condition=Q(talon__created_at__gt=start, talon__created_at__lt=end))).annotate(
+            c=Count('a')).order_by('pk')]
+        return totalTalonPurposes
+
+    def get_ratingOperatorByTalonPurposes(self, start, end):
+        ans = {'data': [], 'operator': []}
+        operators = OperatorSettings.objects.select_related('user').all()
+        purposes = TalonPurposes.objects.values('pk', 'name').order_by('pk')
+        temp_data = []
+        for op in operators:
+            temp = {pur.get('purpose'): pur.get('c') for pur in Talon.objects.filter(logs__action=TalonLog.Actions.COMPLETED, logs__created_by=op.user, created_at__gt=start, created_at__lt=end).values(
+                'purpose').annotate(c=Count('purpose')).order_by('purpose')}
+            data = [temp.get(v.get('pk'), 0) for v in purposes]
+            temp_data.append(data)
+
+        data = [[temp_data[j][i]
+                 for j in range(len(temp_data))] for i in range(len(temp_data[0]))]
+        for i, v in enumerate(purposes):
+            ans['data'].append({'name': v.get('name'), 'data': data[i]})
+        for op in operators:
+            ans['operator'].append(op.user.username)
+        return ans
+
+    def get(self, request):
+        user: CustomUser = request.user
+        if not user.groups.contains(Group.objects.get(name="Admins")):
+            return Response(status=403, data={'detail': 'Недостаточно прав'})
+        start = datetime.datetime.fromisoformat((request.GET.get('start')))
+        end = datetime.datetime.fromisoformat((request.GET.get('end')))
+        ans = {
+            'TalonPurposes': [i.get('name') for i in TalonPurposes.objects.values('name').order_by('pk')],
+            'totalTalonPurposes': self.get_totalTalonPurposes(start, end),
+            'ratingOperatorByTalonPurposes': self.get_ratingOperatorByTalonPurposes(start, end)
+        }
+        return JsonResponse(ans, status=200)

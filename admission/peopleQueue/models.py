@@ -23,6 +23,17 @@ class Talon(models.Model):
     updated_at = models.DateTimeField(auto_now=True)
     created_at = models.DateTimeField(auto_now_add=True)
 
+    @property
+    def completed_by(self):
+        try:
+            log = self.logs.filter(action=TalonLog.Actions.COMPLETED).get()
+        except TalonLog.DoesNotExist:
+            return None
+        except TalonLog.MultipleObjectsReturned:
+            return None
+        user = log.created_by
+        return user
+
     @classmethod
     def get_active_queryset(cls):
         return cls.objects.exclude(

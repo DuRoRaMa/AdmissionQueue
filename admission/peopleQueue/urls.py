@@ -16,5 +16,8 @@ urlpatterns = [
             ])),
     re_path(r"^tablo/", views.TabloAPIView.as_view()),
     re_path(r"^registrator/talon/cancel",
-            views.RegistratorTalonActionAPIView().as_view())
+            views.RegistratorTalonActionAPIView.as_view()),
+    re_path(r"^dashboard/",
+            views.DashboardAPIView.as_view()),
+
 ]
