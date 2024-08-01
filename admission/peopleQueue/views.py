@@ -1,6 +1,9 @@
 import datetime
 import logging
+import pytz
 from django.http import JsonResponse
+from django.db import transaction
+from django.conf import settings
 from django.db.models import Min, Max, Count, F, Q, FilteredRelation
 from django.contrib.auth.models import Group
 from rest_framework import generics, status
@@ -16,7 +19,7 @@ from accounts.authentication import BearerAuthentication
 from accounts.models import CustomUser
 
 from .serializers import OperatorLocationSerializer, OperatorSettingsSerializer, TalonPurposesSerializer, TalonSerializer, TalonLogSerializer
-from .models import OperatorLocation, OperatorSettings, Talon, TalonLog, TalonPurposes
+from .models import OperatorLocation, OperatorSettings, Talon, TalonLog, TalonPurposes, TalonActions
 
 channel_layer = get_channel_layer()
 
@@ -36,6 +39,7 @@ class OperatorStatsAPIView(APIView):
         )
         min_date: datetime.datetime = query['mi']
         max_date: datetime.datetime = query['ma']
+        days = (max_date - min_date).days + 2
         ps = list(map(lambda x: (x['pk'], x['name']),
                   TalonPurposes.objects.values('pk', 'name')))
         obj = Talon.objects.filter(
@@ -56,14 +60,14 @@ class OperatorStatsAPIView(APIView):
                             created_at__month=(
                                 min_date + datetime.timedelta(days=j)).month
                         ).count()
-                    ] for j in range((max_date - min_date).days + 1)
+                    ] for j in range(days)
                 ]
             } for i, name in ps
         ]
         summa = {
             'name': 'Сумма',
             'data': [
-                [(min_date + datetime.timedelta(days=j)).strftime("%Y-%m-%d"), sum([d['data'][j][1] for d in ans])] for j in range((max_date - min_date).days + 1)
+                [(min_date + datetime.timedelta(days=j)).strftime("%Y-%m-%d"), sum([d['data'][j][1] for d in ans])] for j in range(days)
             ]
         }
         ans.append(summa)
@@ -94,41 +98,62 @@ class OperatorTalonActionAPIView(APIView):
             return Response(status=400)
 
     def post(self, request):
+        user = request.user
         action = request.GET.get('action')
         logging.info(action)
-        settings = OperatorSettings.objects.get(user=request.user)
-        talon = request.user.get_current_operator_talon()
+        settings = OperatorSettings.objects.get(user=user)
+        talon: Talon | None = request.user.get_current_operator_talon()
+        if action == 'new':
+            if talon:
+                return Response("У вас уже есть талон в работе", status=400)
+            with transaction.atomic():
+                purpose = TalonPurposes.objects.get(
+                    pk=int(request.data.get('purpose'))
+                )
+                name, ordinal = Talon.get_name_and_ordinal_new_Talon_by_purpose(
+                    purpose
+                )
+                talon = Talon.objects.create(
+                    purpose=purpose,
+                    name=name,
+                    ordinal=ordinal,
+                    action=TalonActions.STARTED,
+                    updated_by=user,
+                    compliting=True
+                )
+                talon.save()
+                TalonLog(
+                    talon=talon,
+                    action=TalonActions.CREATED,
+                    created_by=user
+                ).save()
+                TalonLog(
+                    talon=talon,
+                    action=TalonActions.ASSIGNED,
+                    created_by=user
+                ).save()
+                TalonLog(
+                    talon=talon,
+                    action=TalonActions.STARTED,
+                    created_by=user
+                ).save()
+                return JsonResponse(data={'id': talon.pk}, status=200)
+
         if not talon:
             return Response(status=400)
-        if action == 'start':
-            TalonLog(
-                talon=talon,
-                action=TalonLog.Actions.STARTED,
-                created_by=request.user
-            ).save()
+        elif action == 'start':
+            talon.start_by(user)
             return Response(status=200)
         elif action == 'cancel':
-            talon.compliting = False
-            talon.save()
-            TalonLog(
-                talon=talon,
-                action=TalonLog.Actions.CANCELLED,
-                created_by=request.user
-            ).save()
+            talon.cancel_by(user)
             return Response(status=200)
         elif action == 'complete':
-            talon.compliting = False
-            talon.save()
-            TalonLog(
-                talon=talon,
-                action=TalonLog.Actions.COMPLETED,
-                created_by=request.user
-            ).save()
+            talon.complete_by(user)
             return Response(status=200)
         elif action == 'notify':
             log: TalonLog | None = TalonLog.objects.filter(
                 talon=talon,
-                action=TalonLog.Actions.ASSIGNED
+                action=TalonActions.ASSIGNED
             ).last()
             if log is None:
                 return Response(status=400)
@@ -155,20 +180,16 @@ class RegistratorTalonActionAPIView(APIView):
         pk = request.GET.get('id')
         if not user.groups.contains(Group.objects.get(name="Registrators")):
             return Response(status=403, data={'detail': 'Недостаточно прав'})
-        try:
-            print(pk)
-            talon = Talon.objects.get(pk=pk)
-        except Talon.DoesNotExist:
-            return Response(status=404, data={'detail': 'Талон не найден'})
-        if talon.compliting:
-            return Response(status=400, data={'detail': 'Талон в обработке'})
-        if talon.logs.filter(action=TalonLog.Actions.CANCELLED).exists():
-            return Response(status=400, data={'detail': 'Талон уже отменен'})
-        TalonLog(
-            talon=talon,
-            action=TalonLog.Actions.CANCELLED,
-            created_by=user
-        ).save()
+        with transaction.atomic():
+            try:
+                talon = Talon.objects.get(pk=pk)
+            except Talon.DoesNotExist:
+                return Response(status=404, data={'detail': 'Талон не найден'})
+            if talon.compliting:
+                return Response(status=400, data={'detail': 'Талон в обработке'})
+            if talon.action == TalonActions.CANCELLED:
+                return Response(status=400, data={'detail': 'Талон уже отменен'})
+            talon.cancel_by(user)
         return Response(status=200, data={'detail': f'Талон {talon.name} отменен'})
 
 
@@ -186,7 +207,7 @@ class TalonListCreateAPIView(generics.ListCreateAPIView):
         headers = self.get_success_headers(serializer.data)
         log = TalonLogSerializer(
             data={'talon': instance.pk,
-                  'action': TalonLog.Actions.CREATED,
+                  'action': TalonActions.CREATED,
                   'comment': request.data.get('comment', ''),
                   'created_by': request.user.pk}
         )
@@ -196,22 +217,9 @@ class TalonListCreateAPIView(generics.ListCreateAPIView):
 
     def perform_create(self, serializer):
         d = serializer.validated_data
-        ordinal = 1
-        today = datetime.datetime.now()
-        f = Talon.objects.filter(
-            purpose=d.get('purpose'),
-            created_at__gt=datetime.datetime(
-                year=today.year,
-                month=today.month,
-                day=today.day
-            )
-        ).last()
-        if f:
-            ordinal += f.ordinal % 99
-        code = d.get('purpose').code
-        num = "{:2d}".format(ordinal).replace(' ', '0')
-        name = f"{code} - {num}"
-        return serializer.save(name=name, ordinal=ordinal)
+        name, ordinal = Talon.get_name_and_ordinal_new_Talon_by_purpose(
+            d.get('purpose'))
+        return serializer.save(name=name, ordinal=ordinal, updated_by=self.request.user)
 
 
 class OperatorInfoListAPIView(generics.views.APIView):
@@ -221,15 +229,6 @@ class OperatorInfoListAPIView(generics.views.APIView):
         locations = OperatorLocationSerializer(
             OperatorLocation.objects.all(), many=True).data
         return JsonResponse({'purposes': purposes, 'locations': locations}, status=200)
-
-
-class TabloAPIView(generics.GenericAPIView):
-    serializer_class = TalonLogSerializer
-
-    def get(self, request):
-        q = Talon.get_active_queryset()
-        # type: ignore
-        return Response(data=TalonLogSerializer(q.logs(), many=True).data, status=200)
 
 
 class OperatorSettingsAPIView(generics.GenericAPIView):
@@ -272,8 +271,16 @@ class DashboardAPIView(APIView):
     permission_classes = [IsAuthenticated]
 
     def get_totalTalonPurposes(self, start, end):
-        totalTalonPurposes = [i.c for i in TalonPurposes.objects.annotate(a=FilteredRelation('talon', condition=Q(talon__created_at__gt=start, talon__created_at__lt=end))).annotate(
-            c=Count('a')).order_by('pk')]
+        totalTalonPurposes = [i.c for i in TalonPurposes.objects.annotate(
+            a=FilteredRelation(
+                'talon',
+                condition=Q(
+                    talon__created_at__gt=start,
+                    talon__created_at__lt=end,
+                    talon__action=TalonActions.COMPLETED
+                )
+            )
+        ).annotate(c=Count('a')).order_by('pk')]
         return totalTalonPurposes
 
     def get_ratingOperatorByTalonPurposes(self, start, end):
@@ -282,7 +289,7 @@ class DashboardAPIView(APIView):
         purposes = TalonPurposes.objects.values('pk', 'name').order_by('pk')
         temp_data = []
         for op in operators:
-            temp = {pur.get('purpose'): pur.get('c') for pur in Talon.objects.filter(logs__action=TalonLog.Actions.COMPLETED, logs__created_by=op.user, created_at__gt=start, created_at__lt=end).values(
+            temp = {pur.get('purpose'): pur.get('c') for pur in Talon.objects.filter(logs__action=TalonActions.COMPLETED, logs__created_by=op.user, created_at__gt=start, created_at__lt=end).values(
                 'purpose').annotate(c=Count('purpose')).order_by('purpose')}
             data = [temp.get(v.get('pk'), 0) for v in purposes]
             temp_data.append(data)
@@ -299,8 +306,11 @@ class DashboardAPIView(APIView):
         user: CustomUser = request.user
         if not user.groups.contains(Group.objects.get(name="Admins")):
             return Response(status=403, data={'detail': 'Недостаточно прав'})
-        start = datetime.datetime.fromisoformat((request.GET.get('start')))
-        end = datetime.datetime.fromisoformat((request.GET.get('end')))
+        tz = pytz.timezone(settings.TIME_ZONE)
+        start = datetime.datetime.fromisoformat(
+            (request.GET.get('start'))).astimezone(tz)
+        end = datetime.datetime.fromisoformat(
+            (request.GET.get('end'))).astimezone(tz)
         ans = {
             'TalonPurposes': [i.get('name') for i in TalonPurposes.objects.values('name').order_by('pk')],
             'totalTalonPurposes': self.get_totalTalonPurposes(start, end),

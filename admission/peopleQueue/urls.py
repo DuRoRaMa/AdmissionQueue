@@ -14,7 +14,6 @@ urlpatterns = [
             re_path(r"^stats", views.OperatorStatsAPIView.as_view(),
                     name='operator-stats'),
             ])),
-    re_path(r"^tablo/", views.TabloAPIView.as_view()),
     re_path(r"^registrator/talon/cancel",
             views.RegistratorTalonActionAPIView.as_view()),
     re_path(r"^dashboard/",

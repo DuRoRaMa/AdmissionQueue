@@ -4,7 +4,7 @@ from aiogram_dialog import Dialog, DialogManager, Window, SubManager
 from aiogram_dialog.widgets.input import MessageInput
 from aiogram_dialog.widgets.text import Const, Format
 from aiogram_dialog.widgets.kbd import Start, Row, Button, SwitchTo, Back, Next, ScrollingGroup, ListGroup
-from peopleQueue.models import Talon, TalonLog
+from peopleQueue.models import Talon, TalonLog, TalonActions
 
 
 async def on_talon_comment_input(message: Message, widget: MessageInput, dialog_manager: DialogManager):
@@ -46,17 +46,17 @@ async def list_getter(event_chat: Chat, **kwargs):
     async for talon in talons:
         last_action = await talon.aget_last_action()
         status = ""
-        if last_action == TalonLog.Actions.COMPLETED:
+        if last_action == TalonActions.COMPLETED:
             status = 'Завершен'
-        elif last_action == TalonLog.Actions.CANCELLED:
+        elif last_action == TalonActions.CANCELLED:
             status = 'Отменен'
-        elif last_action == TalonLog.Actions.ASSIGNED:
+        elif last_action == TalonActions.ASSIGNED:
             status = 'Оператор ожидает Вас'
-        elif last_action == TalonLog.Actions.STARTED:
+        elif last_action == TalonActions.STARTED:
             status = 'В процессе'
-        elif last_action == TalonLog.Actions.CREATED:
+        elif last_action == TalonActions.CREATED:
             status = 'В ожидании'
-        elif last_action == TalonLog.Actions.REDIRECTED:
+        elif last_action == TalonActions.REDIRECTED:
             status = 'В ожидании'
         data['talons'].append({
             'id': talon.id,
@@ -78,17 +78,17 @@ async def to_info_window(callback: CallbackQuery, button: Button, manager: SubMa
     manager.dialog_data['created_at'] = talon.created_at.astimezone().strftime(
         '%d.%m.%Y %H:%M')
     last_action = await talon.aget_last_action()
-    if last_action == TalonLog.Actions.COMPLETED:
+    if last_action == TalonActions.COMPLETED:
         status = 'Завершен'
-    elif last_action == TalonLog.Actions.CANCELLED:
+    elif last_action == TalonActions.CANCELLED:
         status = 'Отменен'
-    elif last_action == TalonLog.Actions.ASSIGNED:
+    elif last_action == TalonActions.ASSIGNED:
         status = 'Оператор ожидает Вас'
-    elif last_action == TalonLog.Actions.STARTED:
+    elif last_action == TalonActions.STARTED:
         status = 'В процессе'
-    elif last_action == TalonLog.Actions.CREATED:
+    elif last_action == TalonActions.CREATED:
         status = 'В ожидании'
-    elif last_action == TalonLog.Actions.REDIRECTED:
+    elif last_action == TalonActions.REDIRECTED:
         status = 'В ожидании'
     manager.dialog_data['is_commented'] = talon.comment is not None
     manager.dialog_data['is_not_commented'] = talon.comment is None
