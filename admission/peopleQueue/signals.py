@@ -7,7 +7,7 @@ from datetime import timedelta
 from rq import Queue
 from .tasks import send_to_tg_chat, send_to_tablo
 
-from .models import OperatorLocation, TalonLog
+from .models import OperatorLocation, TalonLog, TalonActions
 
 channel_layer = get_channel_layer()
 
@@ -24,9 +24,9 @@ async def on_talonlog_post_save(sender, instance: TalonLog, created: bool, raw, 
     if talon.tg_chat_id:
         minutes = 0
         text = ""
-        if instance.action == TalonLog.Actions.CREATED:
+        if instance.action == TalonActions.CREATED:
             return
-        elif instance.action == TalonLog.Actions.ASSIGNED:
+        elif instance.action == TalonActions.ASSIGNED:
             # await instance.arefresh_from_db(fields=['created_by'])
             created_by = await get_user_model().objects.select_related(
                 'operator_settings'
@@ -39,10 +39,10 @@ async def on_talonlog_post_save(sender, instance: TalonLog, created: bool, raw, 
             )
             text = f"""
             Статус талона {talon.name} обновлен!\nОператор ожидает вас за столом {location.name}"""
-        elif instance.action == TalonLog.Actions.CANCELLED:
+        elif instance.action == TalonActions.CANCELLED:
             text = f"""
             Статус талона {talon.name} обновлен!\nК сожалению Ваш талон больше недействителен.\nЧтобы взять новый талон обратитесь, пожалуйста, на стойку ресепшена."""
-        elif instance.action == TalonLog.Actions.COMPLETED:
+        elif instance.action == TalonActions.COMPLETED:
             minutes = 5
             text = f"""
             Статус талона {talon.name} обновлен!\nСпасибо, что обратились в Приемную комиссию ДВФУ.\nСвой отзыв Вы можете оставить в меню "Мои талоны"""

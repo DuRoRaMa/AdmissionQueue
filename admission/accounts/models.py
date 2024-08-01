@@ -1,6 +1,7 @@
+from django.db import transaction
 from django.contrib.auth.models import AbstractUser
 
-from peopleQueue.models import OperatorSettings, Talon, TalonLog, TalonPurposes
+from peopleQueue.models import OperatorSettings, Talon, TalonLog, TalonActions, TalonPurposes
 
 
 class CustomUser(AbstractUser):
@@ -24,25 +25,22 @@ class CustomUser(AbstractUser):
 
     def get_current_operator_talon(self) -> Talon | None:
         try:
-            res = TalonLog.objects.exclude(
-                action__in=[TalonLog.Actions.COMPLETED,
-                            TalonLog.Actions.CANCELLED]).filter(
-                                talon__compliting=True,
-                                action=TalonLog.Actions.ASSIGNED,
-                                created_by=self
-            ).select_related('talon').get()
-
-            return res.talon
-        except TalonLog.DoesNotExist:
+            res = Talon.objects.filter(
+                action__in=[TalonActions.ASSIGNED, TalonActions.STARTED],
+                updated_by=self,
+                compliting=True
+            ).get()
+            return res
+        except Talon.DoesNotExist:
             return None
 
     async def aget_current_operator_talon(self) -> Talon | None:
         try:
             res = await TalonLog.objects.exclude(
-                action__in=[TalonLog.Actions.COMPLETED,
-                            TalonLog.Actions.CANCELLED]).filter(
+                action__in=[TalonActions.COMPLETED,
+                            TalonActions.CANCELLED]).filter(
                                 talon__compliting=True,
-                                action=TalonLog.Actions.ASSIGNED,
+                                action=TalonActions.ASSIGNED,
                                 created_by=self
             ).select_related('talon').aget()
 
@@ -55,37 +53,29 @@ class CustomUser(AbstractUser):
             return True
         return False
 
-    def assign_talon(self):
-        talon = Talon.objects.exclude(
-            logs__action__in=[TalonLog.Actions.COMPLETED,
-                              TalonLog.Actions.CANCELLED]).filter(
-            compliting=False,
-            purpose__in=self.operator_settings.purposes.all()
-        ).first()
-        if talon is None:
+    def assign_talon(self) -> None | Talon:
+        try:
+            with transaction.atomic():
+                talon = Talon.objects.filter(
+                    action=TalonActions.CREATED,
+                    compliting=False,
+                    purpose__in=self.operator_settings.purposes.all()
+                ).first()
+                if talon is None:
+                    return None
+                talon.refresh_from_db(fields=['action', 'compliting'])
+                if talon.compliting:
+                    raise Exception("Talon is already compliting")
+                talon.compliting = True
+                if talon.action == TalonActions.ASSIGNED:
+                    raise Exception("Talon is already assigned")
+                talon.action = TalonActions.ASSIGNED
+                talon.updated_by = self
+                talon.save()
+                TalonLog(talon=talon,
+                         action=TalonActions.ASSIGNED,
+                         created_by=self).save()
+        except Exception as e:
+            print(e)
             return None
-        talon.compliting = True
-        talon.save()
-        TalonLog(talon=talon,
-                 action=TalonLog.Actions.ASSIGNED,
-                 created_by=self).save()
-        return talon
-
-    async def aassign_talon(self):
-        settings = await OperatorSettings.objects.aget(user=self)
-        purposes = [purpose.pk async for purpose in TalonPurposes.objects.filter(operator_settings=settings)]
-        # purposes = (await OperatorSettings.objects.prefetch_related('purposes').aget(user=self)).purposes.values_list('pk', flat=True)
-        talon = await Talon.objects.exclude(
-            action__in=[TalonLog.Actions.COMPLETED,
-                        TalonLog.Actions.CANCELLED]).filter(
-            compliting=False,
-            purpose__in=purposes
-        ).afirst()
-        if talon is None:
-            return None
-        talon.compliting = True
-        await talon.asave()
-        await TalonLog(talon=talon,
-                       action=TalonLog.Actions.ASSIGNED,
-                       created_by=self).asave()
         return talon

@@ -8,7 +8,7 @@ admin.site.register(OperatorQueue)
 
 @admin.register(Talon)
 class TalonAdmin(admin.ModelAdmin):
-    list_display = ('id', 'name', 'purpose', 'compliting',
+    list_display = ('id', 'name', 'purpose', 'action', 'updated_by', 'compliting',
                     'tg_chat_id', 'updated_at', 'created_at')
     list_filter = ('purpose', 'compliting')
 

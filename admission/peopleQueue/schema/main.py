@@ -32,6 +32,7 @@ class TalonPurposes:
 class Talon:
     logs: list["TalonLog"]
     purpose: TalonPurposes
+    updated_by: User
 
 
 @strawberry_django.order(models.Talon)
@@ -48,7 +49,7 @@ class HistoryTalon:
 
     @classmethod
     def get_queryset(cls, queryset, info, **kwargs):
-        return queryset.filter(logs__action__in=[models.TalonLog.Actions.COMPLETED, models.TalonLog.Actions.CANCELLED])
+        return queryset.filter(action__in=[models.TalonActions.COMPLETED, models.TalonActions.CANCELLED])
 
 
 @strawberry_django.type(models.TalonLog,  fields='__all__')
@@ -81,15 +82,15 @@ class Query:
 
     @strawberry_django.field
     def inQueueTalons(self) -> list[Talon]:
-        return models.Talon.objects.filter(compliting=False).exclude(logs__action__in=[models.TalonLog.Actions.COMPLETED, models.TalonLog.Actions.CANCELLED])
+        return models.Talon.objects.filter(compliting=False, action=models.TalonActions.CREATED)
 
     @strawberry_django.field
     async def countActiveTalons(self) -> int:
-        return await models.Talon.objects.filter(compliting=False).exclude(logs__action__in=[models.TalonLog.Actions.COMPLETED, models.TalonLog.Actions.CANCELLED]).acount()
+        return await models.Talon.objects.filter(compliting=False, action=models.TalonActions.CREATED).acount()
 
     @strawberry_django.field
     async def countHistoryTalons(self) -> int:
-        return await models.Talon.objects.filter(logs__action__in=[models.TalonLog.Actions.COMPLETED, models.TalonLog.Actions.CANCELLED]).acount()
+        return await models.Talon.objects.filter(action__in=[models.TalonActions.COMPLETED, models.TalonActions.CANCELLED]).acount()
 
     @ strawberry.field
     async def lastTalonLog(self) -> TalonLog:
