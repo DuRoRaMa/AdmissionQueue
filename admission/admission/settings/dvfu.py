@@ -4,13 +4,16 @@ DEBUG = False
 
 ALLOWED_HOSTS = [
     'aq.dvfu.ru',
+    '82.202.137.179',
     '127.0.0.1',
-    'localhost'
+    'localhost',
+    'pavlyuk-it.ru'  # Добавьте это
 ]
 CORS_ORIGIN_ALLOW_ALL = False
 CORS_ALLOWED_ORIGINS = [
     'https://aq.dvfu.ru',
     'http://127.0.0.1:8000',
+    'https://pavlyuk-it.ru'  # Добавьте это
 ]
 # SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https")
 CSRF_TRUSTED_ORIGINS = [
