@@ -3,8 +3,7 @@ from .base import *
 DEBUG = False
 
 ALLOWED_HOSTS = [
-    'aq.dvfu.ru',
-    '127.0.0.1',
+    '82.202.137.179',
     'localhost'
 ]
 CORS_ORIGIN_ALLOW_ALL = False
