@@ -3,14 +3,12 @@ from .base import *
 DEBUG = False
 
 ALLOWED_HOSTS = [
-    'aq.dvfu.ru',
-    '127.0.0.1',
+    '82.202.137.179',
     'localhost'
 ]
 CORS_ORIGIN_ALLOW_ALL = False
 CORS_ALLOWED_ORIGINS = [
-    'https://aq.dvfu.ru',
-    'http://127.0.0.1:8000',
+    'http://82.202.137.179',
 ]
 # SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https")
 CSRF_TRUSTED_ORIGINS = [
