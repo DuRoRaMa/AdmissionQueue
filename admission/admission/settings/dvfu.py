@@ -9,12 +9,12 @@ ALLOWED_HOSTS = [
 ]
 CORS_ORIGIN_ALLOW_ALL = False
 CORS_ALLOWED_ORIGINS = [
-    'https://aq.dvfu.ru',
+    'http://82.202.137.179/',
     'http://127.0.0.1:8000',
 ]
 # SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https")
 CSRF_TRUSTED_ORIGINS = [
-    'https://aq.dvfu.ru',
+    'http://82.202.137.179/',
 ]
 SESSION_COOKIE_SECURE = False
 CSRF_COOKIE_SECURE = True
