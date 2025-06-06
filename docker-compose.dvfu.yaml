@@ -28,7 +28,7 @@ services:
       - backend
     env_file: ${ENV_FILE}
     environment:
-      - BASE_URL=https://aq.dvfu.ru
+      - BASE_URL=https://vinogradov-it.ru
     depends_on:
       - redis
       - pgdb
