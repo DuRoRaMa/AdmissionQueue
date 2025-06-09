@@ -6,7 +6,7 @@ DEBUG = False
 ALLOWED_HOSTS = [
     'vinogradov-it.ru',      # Основной домен
     'www.vinogradov-it.ru',  # WWW поддомен
-    '82.202.137.179',        # IP сервера
+   
     'localhost',
     'backend',               # Имя сервиса в Docker
     'aq-backend',            # Имя контейнера
@@ -34,8 +34,8 @@ CSRF_COOKIE_SECURE = True
 CSRF_COOKIE_HTTPONLY = True  # Рекомендуется для безопасности
 
 # Настройки домена кук
-CSRF_COOKIE_DOMAIN = '.vinogradov-it.ru'  # Точка в начале для поддоменов
-SESSION_COOKIE_DOMAIN = '.vinogradov-it.ru'
+CSRF_COOKIE_DOMAIN = 'vinogradov-it.ru'  # Точка в начале для поддоменов
+SESSION_COOKIE_DOMAIN = 'vinogradov-it.ru'
 
 # Валидаторы паролей
 AUTH_PASSWORD_VALIDATORS = [
