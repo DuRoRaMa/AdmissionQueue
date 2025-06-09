@@ -1,7 +1,7 @@
 from .base import *
 
 DEBUG = False
-
+SECRET_KEY = os.environ.get('DJANGO_SECRET_KEY')
 # Разрешенные хосты
 ALLOWED_HOSTS = [
     'vinogradov-it.ru',      # Основной домен
@@ -98,7 +98,7 @@ DATABASES = {
 }
 
 # Секретный ключ
-SECRET_KEY = os.environ.get('DJANGO_SECRET_KEY')
+
 
 # Дополнительные настройки безопасности
 SECURE_HSTS_SECONDS = 31536000  # 1 год
