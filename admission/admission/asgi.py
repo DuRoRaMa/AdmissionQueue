@@ -5,13 +5,13 @@ ASGI config for admission project.
 import os
 from django.core.asgi import get_asgi_application
 
-# Важно: сначала устанавливаем переменные окружения ДО импорта других модулей Django
+# Важно: сначала устанавливаем переменные окружения
 os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'admission.settings')
 
-# Получаем ASGI-приложение для HTTP
+# Инициализируем Django
 django_asgi_app = get_asgi_application()
 
-# Только ПОСЛЕ инициализации Django импортируем остальные модули
+# Только ПОСЛЕ инициализации Django импортируем остальное
 from channels.routing import ProtocolTypeRouter, URLRouter
 from channels.auth import AuthMiddlewareStack
 from channels.security.websocket import AllowedHostsOriginValidator
@@ -21,21 +21,23 @@ from peopleQueue.schema import schema
 
 class CustomGraphQLWSConsumer(GraphQLWSConsumer):
     async def connect(self):
-        if not self.scope.get("user"):
-            await self.close(code=4401)
-            return
+        # Разрешаем подключения без аутентификации
+        # Для публичного табло это необходимо
         await super().connect()
+        
+        # Для отладки можно добавить лог
+        print(f"WebSocket connected: {self.scope['client']}")
 
 gql_ws_consumer = CustomGraphQLWSConsumer.as_asgi(schema=schema)
 
 websocket_urlpatterns = [
-    re_path(r"^graphql/$", gql_ws_consumer),
+    re_path(r"^graphql/$", gql_ws_consumer),  # Используйте ^ и $ для точного соответствия
 ]
 
 application = ProtocolTypeRouter({
     "http": django_asgi_app,
-    "websocket": AllowedHostsOriginValidator(
-        AuthMiddlewareStack(
+    "websocket": AllowedHostsOriginValidator(  # Добавляем валидацию хостов
+        AuthMiddlewareStack(  # Оставляем middleware аутентификации
             URLRouter(websocket_urlpatterns)
         )
     ),
