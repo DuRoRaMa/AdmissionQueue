@@ -25,9 +25,10 @@ websocket_urlpatterns = [
     re_path(r"graphql/", gql_ws_consumer),
 ]
 
-application = ProtocolTypeRouter(
-    {
-        "http": django_asgi_app,
-        "websocket": AuthMiddlewareStack(URLRouter(websocket_urlpatterns)),
-    }
-)
+application = ProtocolTypeRouter({
+    "http": django_asgi_app,
+    "websocket": AllowedHostsOriginValidator(  # Валидация хостов
+        # Убираем AuthMiddlewareStack для WebSocket
+        URLRouter(websocket_urlpatterns)
+    ),
+})
