@@ -41,10 +41,12 @@ REDIS_PORT = "6379"
 REDIS_URL = (REDIS_HOST, REDIS_PORT)
 
 CHANNEL_LAYERS = {
-    'default': {
-        'BACKEND': 'channels_redis.core.RedisChannelLayer',
-        'CONFIG': {
-            "hosts": [REDIS_URL],
+    "default": {
+        "BACKEND": "channels_redis.core.RedisChannelLayer",
+        "CONFIG": {
+            "hosts": [f"redis://{REDIS_HOST}:{REDIS_PORT}/0"],
+            # Уберите шифрование для сессий WebSocket
+            "symmetric_encryption_keys": None,
         },
     },
 }
