@@ -98,7 +98,59 @@ DATABASES = {
 }
 
 # Секретный ключ
+# Добавьте в существующий settings.py
 
+# WebSocket настройки
+WEBSOCKET_URL = '/graphql/'
+WEBSOCKET_KEEPALIVE = 25  # Интервал ping-пакетов в секундах
+FERNET_KEY = os.environ.get('FERNET_KEY')
+
+# Настройки Channels
+CHANNEL_LAYERS = {
+    'default': {
+        'BACKEND': 'channels_redis.core.RedisChannelLayer',
+        'CONFIG': {
+            "hosts": [(os.environ.get('REDIS_HOST', 'redis'), 6379)],
+            "symmetric_encryption_keys": [SECRET_KEY],
+            "channel_capacity": {
+                "http.request": 1000,
+                "websocket.receive": 1000,
+            },
+            "connection_kwargs": {
+                "health_check_interval": 30,
+                "socket_keepalive": True,
+            },
+        },
+    },
+}
+
+# Логирование WebSocket
+LOGGING = {
+    'version': 1,
+    'disable_existing_loggers': False,
+    'handlers': {
+        'websocket': {
+            'class': 'logging.handlers.RotatingFileHandler',
+            'filename': '/var/log/websocket.log',
+            'maxBytes': 1024 * 1024 * 5,  # 5 MB
+            'backupCount': 5,
+            'formatter': 'verbose',
+        },
+    },
+    'formatters': {
+        'verbose': {
+            'format': '{levelname} {asctime} {module} {message}',
+            'style': '{',
+        },
+    },
+    'loggers': {
+        'websocket': {
+            'handlers': ['websocket'],
+            'level': 'DEBUG',
+            'propagate': False,
+        },
+    },
+}
 
 # Дополнительные настройки безопасности
 SECURE_HSTS_SECONDS = 31536000  # 1 год
