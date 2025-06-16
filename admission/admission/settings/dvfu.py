@@ -33,9 +33,9 @@ SESSION_COOKIE_SECURE = True
 CSRF_COOKIE_SECURE = True
 CSRF_COOKIE_HTTPONLY = True  # Рекомендуется для безопасности
 
-# Настройки домена кук
-CSRF_COOKIE_DOMAIN = 'vinogradov-it.ru'  # Точка в начале для поддоменов
-SESSION_COOKIE_DOMAIN = 'vinogradov-it.ru'
+CHANNELS_WS_PROTOCOLS = ["graphql-ws"]
+SESSION_COOKIE_SAMESITE = 'None'  # Для кросс-доменных запросов
+
 
 # Валидаторы паролей
 AUTH_PASSWORD_VALIDATORS = [
