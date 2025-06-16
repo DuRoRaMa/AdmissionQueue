@@ -17,6 +17,7 @@ CORS_ORIGIN_ALLOW_ALL = False
 CORS_ALLOWED_ORIGINS = [
     'https://vinogradov-it.ru',
     'https://www.vinogradov-it.ru',
+    'wss://vinogradov-it.ru'
 ]
 
 # Важно для работы за прокси (Nginx)
@@ -25,7 +26,8 @@ SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https")
 # Доверенные источники для CSRF
 CSRF_TRUSTED_ORIGINS = [
     'https://vinogradov-it.ru',
-    'https://www.vinogradov-it.ru'
+    'https://www.vinogradov-it.ru',
+    'wss://vinogradov-it.ru'
 ]
 
 # Безопасные куки (включить для HTTPS)
