@@ -36,9 +36,8 @@ websocket_urlpatterns = [
 
 application = ProtocolTypeRouter({
     "http": django_asgi_app,
-    "websocket": AllowedHostsOriginValidator(  # Добавляем валидацию хостов
-        AuthMiddlewareStack(  # Оставляем middleware аутентификации
-            URLRouter(websocket_urlpatterns)
-        )
+    "websocket": AllowedHostsOriginValidator(  # Валидация хостов
+        # Убираем AuthMiddlewareStack для WebSocket
+        URLRouter(websocket_urlpatterns)
     ),
 })
