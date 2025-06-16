@@ -4,12 +4,11 @@ DEBUG = False
 SECRET_KEY = os.environ.get('DJANGO_SECRET_KEY')
 # Разрешенные хосты
 ALLOWED_HOSTS = [
-    'vinogradov-it.ru',      # Основной домен
-    'www.vinogradov-it.ru',  # WWW поддомен
-   
+    'vinogradov-it.ru',
+    'www.vinogradov-it.ru',
     'localhost',
-    'backend',               # Имя сервиса в Docker
-    'aq-backend',            # Имя контейнера
+    'backend',
+    'aq-backend',
 ]
 
 # Настройки CORS
@@ -25,9 +24,8 @@ SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https")
 
 # Доверенные источники для CSRF
 CSRF_TRUSTED_ORIGINS = [
-    'https://vinogradov-it.ru',
-    'https://www.vinogradov-it.ru',
-    'wss://vinogradov-it.ru'
+    "vinogradov-it.ru",
+    "www.vinogradov-it.ru"
 ]
 
 # Безопасные куки (включить для HTTPS)
@@ -74,7 +72,10 @@ CHANNEL_LAYERS = {
         },
     },
 }
-
+CHANNELS_ALLOWED_HOSTS = [
+    "vinogradov-it.ru",
+    "www.vinogradov-it.ru"
+]
 # Очереди
 RQ_QUEUES = {
     'default': {
