@@ -24,8 +24,8 @@ SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https")
 
 # Доверенные источники для CSRF
 CSRF_TRUSTED_ORIGINS = [
-    "vinogradov-it.ru",
-    "www.vinogradov-it.ru"
+    'https://vinogradov-it.ru',
+    'https://www.vinogradov-it.ru',
 ]
 
 # Безопасные куки (включить для HTTPS)
