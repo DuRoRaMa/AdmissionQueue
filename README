@@ -1,3 +1,0 @@
-#### When docker container is running and you need to create superuser:
-
-`docker exec -it aq-backend make createsuperuser`
