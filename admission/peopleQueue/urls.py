@@ -18,5 +18,6 @@ urlpatterns = [
             views.RegistratorTalonActionAPIView.as_view()),
     re_path(r"^dashboard/",
             views.DashboardAPIView.as_view()),
+        re_path(r"^stats/extended/$", views.QueueStatisticsAPIView.as_view(), name="queue-stats-extended"),
 
 ]
