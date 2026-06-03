@@ -155,17 +155,11 @@ class Talon(models.Model):
             return False
 
     def is_cancelled(self) -> bool:
-        if self.logs.filter(action__name="Cancelled").exists():
-            return True
-        else:
-            return False
+        return self.logs.filter(action=TalonActions.CANCELLED).exists()
 
     @property
     def is_completed(self) -> bool:
-        if self.logs.filter(action__name="Completed").exists():
-            return True
-        else:
-            return False
+        return self.logs.filter(action=TalonActions.COMPLETED).exists()
 
     def __str__(self):
         return f"Talon(id({self.pk}) {self.name} ({self.purpose.name}))"

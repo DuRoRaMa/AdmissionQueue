@@ -31,8 +31,7 @@ async def send_request_to_tg_chat(request_id: int):
             ]
         ]
     )
-    text = f"От: {from_by}\nСрочность: {priority}\nТема: {
-        request.theme}\nТекст:\n{request.text}"
+    text = f"От: {from_by}\n Срочность: {priority}\nТема: { request.theme}\nТекст:\n{request.text}"
     await bot.send_message(
         helper.tg_chat_id,
         text,

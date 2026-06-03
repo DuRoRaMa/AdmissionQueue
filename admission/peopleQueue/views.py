@@ -17,6 +17,7 @@ from asgiref.sync import async_to_sync
 
 from accounts.authentication import BearerAuthentication
 from accounts.models import CustomUser
+from .services.stats_service import get_queue_statistics
 
 from .serializers import OperatorLocationSerializer, OperatorSettingsSerializer, TalonPurposesSerializer, TalonSerializer, TalonLogSerializer
 from .models import OperatorLocation, OperatorSettings, Talon, TalonLog, TalonPurposes, TalonActions
@@ -317,3 +318,11 @@ class DashboardAPIView(APIView):
             'ratingOperatorByTalonPurposes': self.get_ratingOperatorByTalonPurposes(start, end)
         }
         return JsonResponse(ans, status=200)
+
+class QueueStatisticsAPIView(APIView):
+    authentication_classes = [SessionAuthentication, BasicAuthentication, BearerAuthentication]
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request: Request) -> Response:
+        data = get_queue_statistics(request.GET)
+        return Response(data=data, status=status.HTTP_200_OK)

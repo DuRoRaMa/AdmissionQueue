@@ -18,10 +18,10 @@ class CustomUser(AbstractUser):
         return False
 
     def get_started_talons(self):
-        return self.talon_logs.filter(action__name="Started").values("talon")
+        return self.talon_logs.filter(action=TalonActions.STARTED).values("talon")
 
     def get_completed_talons(self):
-        return self.talon_logs.filter(action__name="Completed").values("talon")
+        return self.talon_logs.filter(action=TalonActions.COMPLETED).values("talon")
 
     def get_current_operator_talon(self) -> Talon | None:
         try:
@@ -56,11 +56,17 @@ class CustomUser(AbstractUser):
     def assign_talon(self) -> None | Talon:
         try:
             with transaction.atomic():
-                talon = Talon.objects.filter(
-                    action=TalonActions.CREATED,
-                    compliting=False,
-                    purpose__in=self.operator_settings.purposes.all()
-                ).first()
+                talon = (
+                    Talon.objects
+                    .select_for_update(skip_locked=True)
+                    .filter(
+                        action=TalonActions.CREATED,
+                        compliting=False,
+                        purpose__in=self.operator_settings.purposes.all()
+                    )
+                    .order_by("created_at")
+                    .first()
+                )
                 if talon is None:
                     return None
                 talon.refresh_from_db(fields=['action', 'compliting'])
