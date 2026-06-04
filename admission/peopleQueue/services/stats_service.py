@@ -8,7 +8,7 @@ from django.db.models import Prefetch
 from django.utils import timezone
 
 from ..models import Talon, TalonActions, TalonLog
-
+from django.contrib.auth import get_user_model
 
 STATUS_LABELS = dict(TalonActions.choices)
 
@@ -299,4 +299,230 @@ def get_queue_statistics(params: dict[str, Any]) -> dict[str, Any]:
             reverse=True,
         ),
         "status_labels": STATUS_LABELS,
+    }
+
+
+
+
+def _format_user(user) -> dict[str, Any] | None:
+    if not user:
+        return None
+
+    return {
+        "id": user.pk,
+        "username": user.username,
+        "first_name": user.first_name,
+        "last_name": user.last_name,
+        "full_name": user.get_full_name(),
+    }
+
+
+def _log_to_dict(log: TalonLog) -> dict[str, Any]:
+    return {
+        "id": log.pk,
+        "action": log.action,
+        "action_label": STATUS_LABELS.get(log.action, log.action),
+        "comment": log.comment,
+        "created_at": timezone.localtime(log.created_at).isoformat(),
+        "created_by": _format_user(log.created_by),
+    }
+
+
+def get_operator_detailed_statistics(
+    operator_id: int,
+    params: dict[str, Any],
+) -> dict[str, Any]:
+    operator_id = int(operator_id)
+
+    User = get_user_model()
+
+    operator = User.objects.get(pk=operator_id)
+
+    start = _parse_datetime_param(params.get("start"), is_end=False)
+    end = _parse_datetime_param(params.get("end"), is_end=True)
+
+    purpose_id = params.get("purpose")
+    status_value = params.get("status")
+
+    logs_queryset = (
+        TalonLog.objects
+        .select_related("created_by")
+        .order_by("created_at")
+    )
+
+    talons_queryset = (
+        Talon.objects
+        .select_related("purpose", "updated_by")
+        .prefetch_related(Prefetch("logs", queryset=logs_queryset))
+        .filter(
+            logs__created_by_id=operator_id,
+            created_at__gte=start,
+            created_at__lt=end,
+        )
+        .distinct()
+        .order_by("-created_at")
+    )
+
+    if purpose_id:
+        talons_queryset = talons_queryset.filter(purpose_id=purpose_id)
+
+    if status_value:
+        talons_queryset = talons_queryset.filter(action=status_value)
+
+    talons = list(talons_queryset)
+
+    summary = {
+        "total": len(talons),
+        "assigned": 0,
+        "started": 0,
+        "completed": 0,
+        "cancelled": 0,
+        "notified": 0,
+        "avg_wait_seconds": 0,
+        "avg_service_seconds": 0,
+    }
+
+    wait_seconds_values: list[int] = []
+    service_seconds_values: list[int] = []
+
+    talons_result: list[dict[str, Any]] = []
+
+    for talon in talons:
+        logs = list(talon.logs.all())
+
+        operator_logs = [
+            log for log in logs
+            if log.created_by_id == operator_id
+        ]
+
+        assigned_log = _first_log(
+            operator_logs,
+            {TalonActions.ASSIGNED, TalonActions.STARTED},
+        )
+        started_log = _first_log(operator_logs, {TalonActions.STARTED})
+        completed_log = _first_log(operator_logs, {TalonActions.COMPLETED})
+        cancelled_log = _first_log(operator_logs, {TalonActions.CANCELLED})
+
+        for log in operator_logs:
+            if log.action == TalonActions.ASSIGNED:
+                summary["assigned"] += 1
+            elif log.action == TalonActions.STARTED:
+                summary["started"] += 1
+            elif log.action == TalonActions.COMPLETED:
+                summary["completed"] += 1
+            elif log.action == TalonActions.CANCELLED:
+                summary["cancelled"] += 1
+
+        wait_seconds = _seconds_between(
+            talon.created_at,
+            assigned_log.created_at if assigned_log else None,
+        )
+
+        service_seconds = _seconds_between(
+            started_log.created_at if started_log else None,
+            completed_log.created_at if completed_log else None,
+        )
+
+        if wait_seconds is not None:
+            wait_seconds_values.append(wait_seconds)
+
+        if service_seconds is not None:
+            service_seconds_values.append(service_seconds)
+
+        talons_result.append(
+            {
+                "id": talon.pk,
+                "name": talon.name,
+                "ordinal": talon.ordinal,
+                "status": talon.action,
+                "status_label": STATUS_LABELS.get(talon.action, talon.action),
+                "purpose": {
+                    "id": talon.purpose_id,
+                    "name": talon.purpose.name,
+                    "code": talon.purpose.code,
+                },
+                "created_at": timezone.localtime(talon.created_at).isoformat(),
+                "assigned_at": (
+                    timezone.localtime(assigned_log.created_at).isoformat()
+                    if assigned_log else None
+                ),
+                "started_at": (
+                    timezone.localtime(started_log.created_at).isoformat()
+                    if started_log else None
+                ),
+                "completed_at": (
+                    timezone.localtime(completed_log.created_at).isoformat()
+                    if completed_log else None
+                ),
+                "cancelled_at": (
+                    timezone.localtime(cancelled_log.created_at).isoformat()
+                    if cancelled_log else None
+                ),
+                "wait_seconds": wait_seconds,
+                "service_seconds": service_seconds,
+                "comment": talon.comment,
+                "logs": [_log_to_dict(log) for log in logs],
+                "operator_logs": [_log_to_dict(log) for log in operator_logs],
+            }
+        )
+
+    summary["avg_wait_seconds"] = _avg(wait_seconds_values)
+    summary["avg_service_seconds"] = _avg(service_seconds_values)
+
+    return {
+        "filters": {
+            "start": start.isoformat(),
+            "end": end.isoformat(),
+            "purpose": purpose_id,
+            "status": status_value,
+        },
+        "operator": _format_user(operator),
+        "summary": summary,
+        "talons": talons_result,
+        "status_labels": STATUS_LABELS,
+    }
+
+def get_queue_statistics_filters() -> dict[str, Any]:
+    User = get_user_model()
+
+    purposes = (
+        Talon.objects
+        .select_related("purpose")
+        .values(
+            "purpose_id",
+            "purpose__name",
+            "purpose__code",
+        )
+        .distinct()
+        .order_by("purpose__name")
+    )
+
+    operators = (
+        User.objects
+        .filter(talon_logs__isnull=False)
+        .distinct()
+        .order_by("last_name", "first_name", "username")
+    )
+
+    return {
+        "purposes": [
+            {
+                "id": item["purpose_id"],
+                "name": item["purpose__name"],
+                "code": item["purpose__code"],
+            }
+            for item in purposes
+            if item["purpose_id"] is not None
+        ],
+        "operators": [
+            {
+                "id": operator.pk,
+                "username": operator.username,
+                "first_name": operator.first_name,
+                "last_name": operator.last_name,
+                "full_name": operator.get_full_name(),
+            }
+            for operator in operators
+        ],
+        "statuses": STATUS_LABELS,
     }

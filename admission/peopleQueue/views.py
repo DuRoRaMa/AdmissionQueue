@@ -17,7 +17,11 @@ from asgiref.sync import async_to_sync
 
 from accounts.authentication import BearerAuthentication
 from accounts.models import CustomUser
-from .services.stats_service import get_queue_statistics
+from .services.stats_service import (
+    get_operator_detailed_statistics,
+    get_queue_statistics,
+    get_queue_statistics_filters,
+)
 
 from .serializers import OperatorLocationSerializer, OperatorSettingsSerializer, TalonPurposesSerializer, TalonSerializer, TalonLogSerializer
 from .models import OperatorLocation, OperatorSettings, Talon, TalonLog, TalonPurposes, TalonActions
@@ -325,4 +329,42 @@ class QueueStatisticsAPIView(APIView):
 
     def get(self, request: Request) -> Response:
         data = get_queue_statistics(request.GET)
+        return Response(data=data, status=status.HTTP_200_OK)
+
+
+class OperatorDetailedStatisticsAPIView(APIView):
+    authentication_classes = [SessionAuthentication, BasicAuthentication, BearerAuthentication]
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request: Request, operator_id: int) -> Response:
+        user = request.user
+
+        is_admin = user.groups.filter(name="Admins").exists()
+        is_self = user.pk == operator_id
+
+        if not is_admin and not is_self:
+            return Response(
+                data={"detail": "Недостаточно прав"},
+                status=status.HTTP_403_FORBIDDEN,
+            )
+
+        try:
+            data = get_operator_detailed_statistics(
+                operator_id=operator_id,
+                params=request.GET,
+            )
+        except CustomUser.DoesNotExist:
+            return Response(
+                data={"detail": "Оператор не найден"},
+                status=status.HTTP_404_NOT_FOUND,
+            )
+
+        return Response(data=data, status=status.HTTP_200_OK)
+
+class QueueStatisticsFiltersAPIView(APIView):
+    authentication_classes = [SessionAuthentication, BasicAuthentication, BearerAuthentication]
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request: Request) -> Response:
+        data = get_queue_statistics_filters()
         return Response(data=data, status=status.HTTP_200_OK)

@@ -19,5 +19,15 @@ urlpatterns = [
     re_path(r"^dashboard/",
             views.DashboardAPIView.as_view()),
         re_path(r"^stats/extended/$", views.QueueStatisticsAPIView.as_view(), name="queue-stats-extended"),
+        re_path(
+                r"^stats/operators/(?P<operator_id>\d+)/$",
+                views.OperatorDetailedStatisticsAPIView.as_view(),
+                name="operator-detailed-stats",
+        ),
+        re_path(
+                r"^stats/filters/$",
+                views.QueueStatisticsFiltersAPIView.as_view(),
+                name="queue-stats-filters",
+        ),
 
 ]
