@@ -14,7 +14,7 @@ from rest_framework.authentication import SessionAuthentication, BasicAuthentica
 from rest_framework.permissions import IsAuthenticated
 from channels.layers import get_channel_layer
 from asgiref.sync import async_to_sync
-
+from .services.operator_activity_service import release_inactive_operator_locations
 from accounts.authentication import BearerAuthentication
 from accounts.models import CustomUser
 from .services.stats_service import (
@@ -22,7 +22,6 @@ from .services.stats_service import (
     get_queue_statistics,
     get_queue_statistics_filters,
 )
-
 from .serializers import OperatorLocationSerializer, OperatorSettingsSerializer, TalonPurposesSerializer, TalonSerializer, TalonLogSerializer
 from .models import OperatorLocation, OperatorSettings, Talon, TalonLog, TalonPurposes, TalonActions
 
@@ -86,6 +85,7 @@ class OperatorTalonActionAPIView(APIView):
     permission_classes = [IsAuthenticated]
 
     def get(self, request: Request) -> JsonResponse | Response:
+        release_inactive_operator_locations()
         action = request.GET.get('action')
         user: CustomUser = request.user
         talon = user.get_current_operator_talon()
@@ -103,6 +103,7 @@ class OperatorTalonActionAPIView(APIView):
             return Response(status=400)
 
     def post(self, request):
+        release_inactive_operator_locations()
         user = request.user
         action = request.GET.get('action')
         logging.info(action)
@@ -110,39 +111,57 @@ class OperatorTalonActionAPIView(APIView):
         talon: Talon | None = request.user.get_current_operator_talon()
         if action == 'new':
             if talon:
-                return Response("У вас уже есть талон в работе", status=400)
-            with transaction.atomic():
-                purpose = TalonPurposes.objects.get(
-                    pk=int(request.data.get('purpose'))
+                return Response(
+                    data={"detail": "У вас уже есть талон в работе"},
+                    status=400,
                 )
+
+            purpose_id = request.data.get("purpose")
+            comment = request.data.get("comment", "")
+
+            if not purpose_id:
+                return Response(
+                    data={"detail": "Не выбрано направление талона"},
+                    status=400,
+                )
+
+            with transaction.atomic():
+                purpose = TalonPurposes.objects.get(pk=int(purpose_id))
+
                 name, ordinal = Talon.get_name_and_ordinal_new_Talon_by_purpose(
                     purpose
                 )
+
                 talon = Talon.objects.create(
                     purpose=purpose,
                     name=name,
                     ordinal=ordinal,
                     action=TalonActions.STARTED,
                     updated_by=user,
-                    compliting=True
+                    compliting=True,
+                    comment=comment or None,
                 )
-                talon.save()
-                TalonLog(
+
+                TalonLog.objects.create(
                     talon=talon,
                     action=TalonActions.CREATED,
-                    created_by=user
-                ).save()
-                TalonLog(
+                    comment=comment,
+                    created_by=user,
+                )
+
+                TalonLog.objects.create(
                     talon=talon,
                     action=TalonActions.ASSIGNED,
-                    created_by=user
-                ).save()
-                TalonLog(
+                    created_by=user,
+                )
+
+                TalonLog.objects.create(
                     talon=talon,
                     action=TalonActions.STARTED,
-                    created_by=user
-                ).save()
-                return JsonResponse(data={'id': talon.pk}, status=200)
+                    created_by=user,
+                )
+
+            return JsonResponse(data={'id': talon.pk}, status=200)
 
         if not talon:
             return Response(status=400)
@@ -170,6 +189,215 @@ class OperatorTalonActionAPIView(APIView):
                 }
             )
             return Response(status=200)
+        elif action == 'redirect':
+            if not talon:
+                return Response(
+                    data={'detail': 'У оператора нет активного талона'},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+
+            if talon.action not in [TalonActions.ASSIGNED, TalonActions.STARTED]:
+                return Response(
+                    data={'detail': 'Переадресовать можно только назначенный или начатый талон'},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+
+            redirect_mode = request.data.get('mode', 'queue')
+            comment = request.data.get('comment', '')
+
+            if redirect_mode not in ['queue', 'operator']:
+                return Response(
+                    data={'detail': 'Некорректный тип переадресации'},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+
+            with transaction.atomic():
+                old_name = talon.name
+                old_purpose = talon.purpose
+
+                if redirect_mode == 'queue':
+                    purpose_id = request.data.get('purpose')
+
+                    if purpose_id:
+                        try:
+                            new_purpose = TalonPurposes.objects.get(pk=int(purpose_id))
+                        except (TalonPurposes.DoesNotExist, ValueError, TypeError):
+                            return Response(
+                                data={'detail': 'Новое направление не найдено'},
+                                status=status.HTTP_404_NOT_FOUND,
+                            )
+                    else:
+                        new_purpose = old_purpose
+
+                    if new_purpose.pk != old_purpose.pk:
+                        new_name, new_ordinal = Talon.get_name_and_ordinal_new_Talon_by_purpose(
+                            new_purpose
+                        )
+                    else:
+                        new_name = old_name
+                        new_ordinal = talon.ordinal
+
+                    talon.purpose = new_purpose
+                    talon.name = new_name
+                    talon.ordinal = new_ordinal
+                    talon.action = TalonActions.CREATED
+                    talon.compliting = False
+                    talon.updated_by = user
+                    talon.save(
+                        update_fields=[
+                            'purpose',
+                            'name',
+                            'ordinal',
+                            'action',
+                            'compliting',
+                            'updated_by',
+                            'updated_at',
+                        ]
+                    )
+
+                    TalonLog.objects.create(
+                        talon=talon,
+                        action=TalonActions.REDIRECTED,
+                        comment=(
+                            comment
+                            or f'Возвращён в очередь: {old_name} ({old_purpose.name}) → '
+                            f'{new_name} ({new_purpose.name})'
+                        ),
+                        created_by=user,
+                    )
+                    channel_layer = get_channel_layer()
+
+                    if channel_layer is not None:
+                        async_to_sync(channel_layer.group_send)(
+                            f"operator_notifications_{target_operator.pk}",
+                            {
+                                "type": "operator.notification",
+                                "data": {
+                                    "event": "talon_redirected",
+                                    "talon": {
+                                        "id": talon.pk,
+                                        "name": talon.name,
+                                        "purpose": talon.purpose.name,
+                                        "action": talon.action,
+                                    },
+                                    "comment": redirect_comment,
+                                    "from_operator": {
+                                        "id": user.pk,
+                                        "name": user.get_full_name() or user.username,
+                                    },
+                                },
+                            },
+                        )
+                    return Response(
+                        data={
+                            'detail': f'Талон возвращён в очередь: {old_name} → {new_name}',
+                            'id': talon.pk,
+                            'name': talon.name,
+                            'mode': 'queue',
+                        },
+                        status=status.HTTP_200_OK,
+                    )
+
+                target_operator_settings_id = request.data.get('operator_settings')
+
+                if not target_operator_settings_id:
+                    return Response(
+                        data={'detail': 'Не выбран оператор'},
+                        status=status.HTTP_400_BAD_REQUEST,
+                    )
+
+                try:
+                    target_settings = (
+                        OperatorSettings.objects
+                        .select_related("user", "location")
+                        .get(pk=int(target_operator_settings_id))
+                    )
+                except (OperatorSettings.DoesNotExist, ValueError, TypeError):
+                    return Response(
+                        data={'detail': 'Настройки выбранного оператора не найдены'},
+                        status=status.HTTP_404_NOT_FOUND,
+                    )
+
+                if target_settings.user_id == user.pk:
+                    return Response(
+                        data={'detail': 'Нельзя переадресовать талон самому себе'},
+                        status=status.HTTP_400_BAD_REQUEST,
+                    )
+
+                if target_settings.location_id is None:
+                    return Response(
+                        data={'detail': 'У выбранного оператора не назначено рабочее место'},
+                        status=status.HTTP_400_BAD_REQUEST,
+                    )
+
+                target_operator = target_settings.user
+
+                target_has_active_talon = Talon.objects.filter(
+                    action__in=[
+                        TalonActions.ASSIGNED,
+                        TalonActions.STARTED,
+                    ],
+                    compliting=True,
+                    updated_by=target_operator,
+                ).exists()
+
+                if target_has_active_talon:
+                    return Response(
+                        data={'detail': 'Выбранный оператор уже занят'},
+                        status=status.HTTP_400_BAD_REQUEST,
+                    )
+
+                talon.action = TalonActions.ASSIGNED
+                talon.compliting = True
+                talon.updated_by = target_operator
+                talon.save(
+                    update_fields=[
+                        'action',
+                        'compliting',
+                        'updated_by',
+                        'updated_at',
+                    ]
+                )
+
+                redirect_comment = comment or (
+                    f'Переадресован оператору '
+                    f'{target_operator.get_full_name() or target_operator.username}'
+                )
+
+                TalonLog.objects.create(
+                    talon=talon,
+                    action=TalonActions.REDIRECTED,
+                    comment=redirect_comment,
+                    created_by=user,
+                )
+
+                TalonLog.objects.create(
+                    talon=talon,
+                    action=TalonActions.ASSIGNED,
+                    comment=(
+                        f'Назначен после переадресации от '
+                        f'{user.get_full_name() or user.username}. '
+                        f'Комментарий: {redirect_comment}'
+                    ),
+                    created_by=target_operator,
+                )
+
+                return Response(
+                    data={
+                        'detail': (
+                            f'Талон {talon.name} передан оператору '
+                            f'{target_operator.get_full_name() or target_operator.username}'
+                        ),
+                        'id': talon.pk,
+                        'name': talon.name,
+                        'mode': 'operator',
+                        'operator': target_operator.pk,
+                        'operator_settings': target_settings.pk,
+                        'location': target_settings.location.name,
+                        'comment': redirect_comment,
+                    },
+                    status=status.HTTP_200_OK,
+                )
         else:
             return Response(status=400)
 
@@ -228,12 +456,75 @@ class TalonListCreateAPIView(generics.ListCreateAPIView):
 
 
 class OperatorInfoListAPIView(generics.views.APIView):
+    authentication_classes = [SessionAuthentication, BasicAuthentication, BearerAuthentication]
+    permission_classes = [IsAuthenticated]
+
     def get(self, request):
         purposes = TalonPurposesSerializer(
-            TalonPurposes.objects.all(), many=True).data
+            TalonPurposes.objects.all(),
+            many=True,
+        ).data
+
         locations = OperatorLocationSerializer(
-            OperatorLocation.objects.all(), many=True).data
-        return JsonResponse({'purposes': purposes, 'locations': locations}, status=200)
+            OperatorLocation.objects.all(),
+            many=True,
+        ).data
+
+        busy_operator_ids = Talon.objects.filter(
+            action__in=[
+                TalonActions.ASSIGNED,
+                TalonActions.STARTED,
+            ],
+            compliting=True,
+            updated_by__isnull=False,
+        ).values_list("updated_by_id", flat=True)
+
+        free_operator_settings = (
+            OperatorSettings.objects
+            .select_related("user", "location")
+            .prefetch_related("purposes")
+            .filter(location__isnull=False)
+            .exclude(user=request.user)
+            .exclude(user_id__in=busy_operator_ids)
+            .order_by(
+                "location__name",
+                "user__last_name",
+                "user__first_name",
+                "user__username",
+            )
+        )
+
+        free_operators = [
+            {
+                "settings_id": item.pk,
+                "user_id": item.user.pk,
+                "username": item.user.username,
+                "first_name": item.user.first_name,
+                "last_name": item.user.last_name,
+                "full_name": item.user.get_full_name(),
+                "location": {
+                    "id": item.location.pk,
+                    "name": item.location.name,
+                },
+                "purposes": [
+                    {
+                        "id": purpose.pk,
+                        "name": purpose.name,
+                        "code": purpose.code,
+                    }
+                    for purpose in item.purposes.all()
+                ],
+            }
+            for item in free_operator_settings
+        ]
+        return JsonResponse(
+            {
+                "purposes": purposes,
+                "locations": locations,
+                "free_operators": free_operators,
+                },
+                status=200,
+            )
 
 
 class OperatorSettingsAPIView(generics.GenericAPIView):
