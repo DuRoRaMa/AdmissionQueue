@@ -25,6 +25,10 @@ from peopleQueue.schema import schema
 urlpatterns = [
     re_path(r'^admin/', admin.site.urls),
     path('django-rq/', include('django_rq.urls')),
+    path(
+        "api/internal/max/",
+        include("peopleQueue.max_urls"),
+    ),
     re_path(r'^graphql', csrf_exempt(AsyncGraphQLView.as_view(
         graphiql=settings.DEBUG,
         schema=schema,

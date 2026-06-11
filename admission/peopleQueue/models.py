@@ -209,3 +209,23 @@ class OperatorQueue(models.Model):
     purpose = models.ForeignKey(TalonPurposes, on_delete=models.CASCADE)
     updated_at = models.DateTimeField(auto_now=True)
     created_at = models.DateTimeField(auto_now_add=True)
+
+class TalonMessengerSubscription(models.Model):
+    talon = models.ForeignKey(
+        Talon,
+        on_delete=models.CASCADE,
+        related_name="messenger_subscriptions",
+    )
+
+    provider = models.CharField(
+        max_length=20,
+    )
+
+    external_user_id = models.CharField(
+        max_length=128,
+    )
+
+    created_at = models.DateTimeField(
+        auto_now_add=True,
+    )
+

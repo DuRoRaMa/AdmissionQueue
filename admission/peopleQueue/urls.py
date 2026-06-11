@@ -29,5 +29,10 @@ urlpatterns = [
                 views.QueueStatisticsFiltersAPIView.as_view(),
                 name="queue-stats-filters",
         ),
+        path(
+                "public/state/",
+                views.PublicQueueStateAPIView.as_view(),
+                name="public-queue-state",
+        ),
 
 ]

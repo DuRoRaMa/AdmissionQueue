@@ -59,3 +59,16 @@ class OperatorLocationSerializer(serializers.ModelSerializer):
     class Meta:
         model = models.OperatorLocation
         fields = "__all__"
+
+class PublicQueueLocationSerializer(serializers.Serializer):
+    id = serializers.IntegerField()
+    name = serializers.CharField()
+
+
+class PublicQueueTalonSerializer(serializers.Serializer):
+    id = serializers.IntegerField()
+    name = serializers.CharField()
+    action = serializers.CharField()
+    purpose = serializers.CharField()
+    location = PublicQueueLocationSerializer()
+
