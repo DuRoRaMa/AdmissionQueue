@@ -1,0 +1,25 @@
+{
+  "name": "admission-queue-max-bot",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "tsx watch src/index.ts",
+    "build": "tsc",
+    "start": "node dist/index.js"
+  },
+  "dependencies": {
+    "@maxhub/max-bot-api": "latest",
+    "axios": "^1.8.4",
+    "dotenv": "^16.5.0",
+    "fastify": "^5.8.5",
+    "ioredis": "^5.6.1",
+    "pino": "^9.6.0",
+    "zod": "^3.24.2"
+  },
+  "devDependencies": {
+    "@types/node": "^22.15.0",
+    "tsx": "^4.19.3",
+    "typescript": "^5.8.3"
+  }
+}

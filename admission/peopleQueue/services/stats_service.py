@@ -67,6 +67,41 @@ def _avg(values: list[int]) -> int:
 
     return int(sum(values) / len(values))
 
+def _operator_service_period(
+    operator_logs: list[TalonLog],
+) -> tuple[datetime | None, datetime | None]:
+    """
+    Определяет период работы конкретного оператора с талоном.
+
+    Начало:
+    первый STARTED.
+
+    Окончание:
+    первый COMPLETED, CANCELLED или REDIRECTED после начала.
+    """
+
+    started_at: datetime | None = None
+
+    for log in operator_logs:
+        if (
+            started_at is None
+            and log.action == TalonActions.STARTED
+        ):
+            started_at = log.created_at
+            continue
+
+        if (
+            started_at is not None
+            and log.action
+            in {
+                TalonActions.COMPLETED,
+                TalonActions.CANCELLED,
+                TalonActions.REDIRECTED,
+            }
+        ):
+            return started_at, log.created_at
+
+    return started_at, None
 
 def _first_log(logs: list[TalonLog], actions: set[str]) -> TalonLog | None:
     for log in logs:
@@ -76,7 +111,17 @@ def _first_log(logs: list[TalonLog], actions: set[str]) -> TalonLog | None:
     return None
 
 
-def _increment_status(bucket: dict[str, Any], status: str) -> None:
+def _increment_status(
+    bucket: dict[str, Any],
+    status: str,
+) -> None:
+    """
+    Увеличивает количество талонов по их текущему состоянию.
+
+    REDIRECTED здесь не учитывается, потому что переадресация является
+    событием журнала, а не стабильным итоговым состоянием талона.
+    """
+
     if status == TalonActions.CREATED:
         bucket["waiting"] += 1
     elif status == TalonActions.ASSIGNED:
@@ -87,8 +132,6 @@ def _increment_status(bucket: dict[str, Any], status: str) -> None:
         bucket["completed"] += 1
     elif status == TalonActions.CANCELLED:
         bucket["cancelled"] += 1
-    elif status == TalonActions.REDIRECTED:
-        bucket["redirected"] += 1
 
 
 def get_queue_statistics(params: dict[str, Any]) -> dict[str, Any]:
@@ -155,9 +198,10 @@ def get_queue_statistics(params: dict[str, Any]) -> dict[str, Any]:
     by_hour: dict[str, dict[str, Any]] = defaultdict(
         lambda: {
             "hour": "",
-            "total": 0,
+            "created": 0,
             "completed": 0,
             "cancelled": 0,
+            "redirected": 0,
         }
     )
 
@@ -178,19 +222,19 @@ def get_queue_statistics(params: dict[str, Any]) -> dict[str, Any]:
 
         local_created_at = timezone.localtime(talon.created_at)
         day_key = local_created_at.date().isoformat()
-        hour_key = f"{local_created_at.hour:02d}:00"
+        created_hour_key = f"{local_created_at.hour:02d}:00"
 
         by_day[day_key]["date"] = day_key
         by_day[day_key]["total"] += 1
         _increment_status(by_day[day_key], status)
 
-        by_hour[hour_key]["hour"] = hour_key
-        by_hour[hour_key]["total"] += 1
+        by_hour[created_hour_key]["hour"] = created_hour_key
+        by_hour[created_hour_key]["created"] += 1
 
         if status == TalonActions.COMPLETED:
-            by_hour[hour_key]["completed"] += 1
+            by_hour[created_hour_key]["completed"] += 1
         elif status == TalonActions.CANCELLED:
-            by_hour[hour_key]["cancelled"] += 1
+            by_hour[created_hour_key]["cancelled"] += 1
 
         purpose = talon.purpose
 
@@ -212,7 +256,17 @@ def get_queue_statistics(params: dict[str, Any]) -> dict[str, Any]:
         _increment_status(by_purpose[purpose.pk], status)
 
         logs = list(talon.logs.all())
+        redirect_logs = [
+            log
+            for log in logs
+            if log.action == TalonActions.REDIRECTED
+        ]
 
+        redirect_count = len(redirect_logs)
+
+        summary["redirected"] += redirect_count
+        by_day[day_key]["redirected"] += redirect_count
+        by_purpose[purpose.pk]["redirected"] += redirect_count
         assigned_log = _first_log(
             logs,
             {TalonActions.ASSIGNED, TalonActions.STARTED},
@@ -237,6 +291,25 @@ def get_queue_statistics(params: dict[str, Any]) -> dict[str, Any]:
             service_seconds.append(service)
 
         for log in logs:
+            local_log_created_at = timezone.localtime(
+                log.created_at
+            )
+
+            log_hour_key = (
+                f"{local_log_created_at.hour:02d}:00"
+            )
+
+            by_hour[log_hour_key]["hour"] = log_hour_key
+
+            if log.action == TalonActions.COMPLETED:
+                by_hour[log_hour_key]["completed"] += 1
+
+            elif log.action == TalonActions.CANCELLED:
+                by_hour[log_hour_key]["cancelled"] += 1
+
+            elif log.action == TalonActions.REDIRECTED:
+                by_hour[log_hour_key]["redirected"] += 1
+
             user = log.created_by
 
             if not user:
@@ -246,10 +319,14 @@ def get_queue_statistics(params: dict[str, Any]) -> dict[str, Any]:
                 by_operator[user.pk] = {
                     "id": user.pk,
                     "username": user.username,
+                    "first_name": user.first_name,
+                    "last_name": user.last_name,
+                    "full_name": user.get_full_name(),
                     "assigned": 0,
                     "started": 0,
                     "completed": 0,
                     "cancelled": 0,
+                    "redirected": 0,
                     "notified": 0,
                     "avg_service_seconds": 0,
                     "_service_seconds": [],
@@ -257,19 +334,25 @@ def get_queue_statistics(params: dict[str, Any]) -> dict[str, Any]:
 
             if log.action == TalonActions.ASSIGNED:
                 by_operator[user.pk]["assigned"] += 1
+
             elif log.action == TalonActions.STARTED:
                 by_operator[user.pk]["started"] += 1
+
             elif log.action == TalonActions.COMPLETED:
                 by_operator[user.pk]["completed"] += 1
 
                 if service is not None:
-                    by_operator[user.pk]["_service_seconds"].append(service)
+                    by_operator[user.pk][
+                        "_service_seconds"
+                    ].append(service)
 
             elif log.action == TalonActions.CANCELLED:
                 by_operator[user.pk]["cancelled"] += 1
 
-    summary["avg_wait_seconds"] = _avg(wait_seconds)
-    summary["avg_service_seconds"] = _avg(service_seconds)
+            elif log.action == TalonActions.REDIRECTED:
+                by_operator[user.pk]["redirected"] += 1
+            summary["avg_wait_seconds"] = _avg(wait_seconds)
+            summary["avg_service_seconds"] = _avg(service_seconds)
 
     operators_result = []
 
@@ -377,6 +460,7 @@ def get_operator_detailed_statistics(
         "started": 0,
         "completed": 0,
         "cancelled": 0,
+        "redirected": 0,
         "notified": 0,
         "avg_wait_seconds": 0,
         "avg_service_seconds": 0,
@@ -412,15 +496,21 @@ def get_operator_detailed_statistics(
                 summary["completed"] += 1
             elif log.action == TalonActions.CANCELLED:
                 summary["cancelled"] += 1
+            elif log.action == TalonActions.REDIRECTED:
+                summary["redirected"] += 1
 
         wait_seconds = _seconds_between(
             talon.created_at,
             assigned_log.created_at if assigned_log else None,
         )
 
+        service_started_at, service_finished_at = (
+            _operator_service_period(operator_logs)
+        )
+
         service_seconds = _seconds_between(
-            started_log.created_at if started_log else None,
-            completed_log.created_at if completed_log else None,
+            service_started_at,
+            service_finished_at,
         )
 
         if wait_seconds is not None:

@@ -1,5 +1,6 @@
 from datetime import timedelta
 
+from django.db import transaction
 from django.utils import timezone
 
 from peopleQueue.models import (
@@ -15,16 +16,24 @@ OPERATOR_IDLE_TIMEOUT_MINUTES = 60
 
 def release_inactive_operator_locations() -> int:
     """
-    Освобождает стол оператора, если:
+    Освобождает рабочее место оператора, если:
+
     1. у оператора выбран стол;
     2. у оператора нет активного талона;
-    3. последний лог оператора старше 60 минут или логов вообще нет.
+    3. последняя активность оператора была более часа назад.
 
-    Дополнительно отключает automatic_assignment, чтобы оператор без стола
-    не продолжал автоматически получать талоны.
+    Активностью считаются:
+    - последнее действие с талоном;
+    - сохранение или изменение настроек оператора.
+
+    Благодаря учёту OperatorSettings.updated_at только что выбранный
+    стол не будет сразу освобождён при отсутствии журналов талонов.
     """
+
     now = timezone.now()
-    cutoff = now - timedelta(minutes=OPERATOR_IDLE_TIMEOUT_MINUTES)
+    cutoff = now - timedelta(
+        minutes=OPERATOR_IDLE_TIMEOUT_MINUTES
+    )
 
     released_count = 0
 
@@ -55,21 +64,52 @@ def release_inactive_operator_locations() -> int:
             .first()
         )
 
-        if last_log is not None and last_log.created_at >= cutoff:
-            continue
-
-        operator_settings.location = None
-        operator_settings.automatic_assignment = False
-        operator_settings.save(
-            update_fields=[
-                "location",
-                "automatic_assignment",
-                "updated_at",
-            ]
+        last_log_at = (
+            last_log.created_at
+            if last_log is not None
+            else None
         )
 
-        OperatorQueue.objects.filter(user=user).delete()
+        settings_updated_at = operator_settings.updated_at
 
-        released_count += 1
+        activity_dates = [
+            activity_date
+            for activity_date in [
+                last_log_at,
+                settings_updated_at,
+            ]
+            if activity_date is not None
+        ]
+
+        # Для существующих настроек updated_at всегда заполнен,
+        # но оставляем безопасную проверку.
+        if activity_dates:
+            last_activity_at = max(activity_dates)
+
+            if last_activity_at >= cutoff:
+                continue
+
+        with transaction.atomic():
+            updated = (
+                OperatorSettings.objects
+                .filter(
+                    pk=operator_settings.pk,
+                    location__isnull=False,
+                )
+                .update(
+                    location=None,
+                    automatic_assignment=False,
+                    updated_at=now,
+                )
+            )
+
+            if not updated:
+                continue
+
+            OperatorQueue.objects.filter(
+                user=user
+            ).delete()
+
+            released_count += 1
 
     return released_count
