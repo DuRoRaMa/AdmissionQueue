@@ -4,7 +4,7 @@ import requests
 from django.conf import settings
 from django_rq import job
 
-from .models import TalonActions, TalonLog
+from .models import Talon, TalonActions, TalonLog
 
 
 logger = logging.getLogger(__name__)
@@ -87,6 +87,69 @@ def send_talon_event_to_max(log_id: int) -> None:
                 "X-Internal-Token": (
                     settings.MAX_BOT_SERVICE_TOKEN
                 )
+            },
+            timeout=10,
+        )
+        response.raise_for_status()
+
+@job
+def send_talon_called_to_max(talon_id: int, operator_id: int) -> None:
+    """Отправляет повторный вызов талона в MAX."""
+
+    from django.contrib.auth import get_user_model
+
+    talon = (
+        Talon.objects
+        .select_related("purpose")
+        .get(pk=talon_id)
+    )
+
+    operator = (
+        get_user_model()
+        .objects
+        .select_related(
+            "operator_settings",
+            "operator_settings__location",
+        )
+        .get(pk=operator_id)
+    )
+
+    try:
+        location = operator.operator_settings.location
+    except AttributeError:
+        location = None
+
+    subscriptions = (
+        talon.messenger_subscriptions
+        .filter(provider="max")
+        .values_list("external_user_id", flat=True)
+    )
+
+    url = (
+        settings.MAX_BOT_SERVICE_URL.rstrip("/")
+        + "/internal/notifications/"
+    )
+
+    for external_user_id in subscriptions:
+        payload = {
+            "external_user_id": external_user_id,
+            "type": "called",
+            "talon": {
+                "id": talon.pk,
+                "name": talon.name,
+            },
+            "location": (
+                location.name
+                if location is not None
+                else None
+            ),
+        }
+
+        response = requests.post(
+            url,
+            json=payload,
+            headers={
+                "X-Internal-Token": settings.MAX_BOT_SERVICE_TOKEN,
             },
             timeout=10,
         )

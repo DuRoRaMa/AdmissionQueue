@@ -9,6 +9,7 @@ const notificationSchema = z.object({
   external_user_id: z.string().min(1),
   type: z.enum([
     'assigned',
+    'called',
     'cancelled',
     'completed',
   ]),

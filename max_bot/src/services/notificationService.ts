@@ -16,7 +16,19 @@ function buildText(
       `Оператор ожидает вас${location}.`,
     ].join('\n');
   }
+   if (payload.type === 'called') {
+    const location = payload.location
+      ? ` за столом ${payload.location}`
+      : '';
 
+    return [
+      `Повторный вызов талона ${payload.talon.name}!`,
+      `Оператор ожидает вас${location}.`,
+      '',
+      'Пожалуйста, подойдите к оператору.',
+      'Для просмотра своих талонов откройте меню.',
+    ].join('\n');
+  }
   if (payload.type === 'cancelled') {
     return [
       `Статус талона ${payload.talon.name} обновлён!`,
@@ -43,8 +55,24 @@ export async function sendMaxNotification(
     );
   }
 
-  await bot.api.sendMessageToUser(
-    userId,
-    buildText(payload),
-  );
+await bot.api.sendMessageToUser(
+  userId,
+  buildText(payload),
+  {
+    keyboard: {
+      buttons: [
+        [
+          {
+            text: 'Мои талоны',
+            payload: 'my_talons',
+          },
+          {
+            text: 'Меню',
+            payload: 'menu',
+          },
+        ],
+      ],
+    },
+  },
+);
 }
