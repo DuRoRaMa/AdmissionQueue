@@ -1,0 +1,101 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: aq-postgres-dev
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: bd
+      POSTGRES_USER: user
+      POSTGRES_PASSWORD: secret_pass
+    ports:
+      - "5432:5432"
+    volumes:
+      - aq_postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U user -d bd"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+
+  redis:
+    image: redis:7-alpine
+    container_name: aq-redis-dev
+    restart: unless-stopped
+    ports:
+      - "6379:6379"
+    volumes:
+      - aq_redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+
+  django:
+    build:
+      context: .
+      dockerfile: admission/Dockerfile.dev
+    container_name: aq-django-dev
+    restart: unless-stopped
+    env_file:
+      - .env.docker
+    working_dir: /app/admission
+    command: >
+      sh -c "
+      python manage.py migrate &&
+      python manage.py runserver 0.0.0.0:8000
+      "
+    volumes:
+      - .:/app
+    ports:
+      - "8000:8000"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
+  rq-worker:
+    build:
+      context: .
+      dockerfile: admission/Dockerfile.dev
+    container_name: aq-rq-worker-dev
+    restart: unless-stopped
+    env_file:
+      - .env.docker
+    working_dir: /app/admission
+    command: python manage.py rqworker default
+    volumes:
+      - .:/app
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      django:
+        condition: service_started
+
+  max-bot:
+    build:
+      context: ./max_bot
+      dockerfile: Dockerfile.dev
+    container_name: aq-max-bot-dev
+    restart: unless-stopped
+    env_file:
+      - .env.docker
+    command: npm run dev
+    volumes:
+      - ./max_bot:/app
+      - aq_max_bot_node_modules:/app/node_modules
+    ports:
+      - "3000:3000"
+    depends_on:
+      redis:
+        condition: service_healthy
+      django:
+        condition: service_started
+
+volumes:
+  aq_postgres_data:
+  aq_redis_data:
+  aq_max_bot_node_modules:

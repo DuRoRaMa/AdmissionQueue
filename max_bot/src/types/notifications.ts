@@ -1,5 +1,6 @@
 export type MaxNotificationType =
   | 'assigned'
+  | 'called'
   | 'cancelled'
   | 'completed';
 

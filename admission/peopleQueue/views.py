@@ -25,6 +25,9 @@ from .services.stats_service import (
 from .serializers import OperatorLocationSerializer, OperatorSettingsSerializer, TalonPurposesSerializer, TalonSerializer, TalonLogSerializer
 from .models import OperatorLocation, OperatorSettings, Talon, TalonLog, TalonPurposes, TalonActions
 from .permissions import IsQueueAdmin
+import django_rq
+from .max_tasks import send_talon_called_to_max
+
 channel_layer = get_channel_layer()
 
 
@@ -289,7 +292,13 @@ class OperatorTalonActionAPIView(APIView):
                     "message": log.pk,
                 },
             )
+            queue = django_rq.get_queue("default")
 
+            queue.enqueue(
+                send_talon_called_to_max,
+                talon.pk,
+                user.pk,
+            )
             return Response(status=status.HTTP_200_OK)
 
         if action == "redirect":

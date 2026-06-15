@@ -24,6 +24,11 @@ MAX_BOT_SERVICE_URL = os.getenv(
     "MAX_BOT_SERVICE_URL",
     "http://127.0.0.1:3000",
 )
+MAX_BOT_SERVICE_TOKEN = os.getenv(
+    "MAX_BOT_SERVICE_TOKEN",
+    "",
+)
+
 def env_bool(name: str, default: bool = False) -> bool:
     value = os.getenv(name)
 
