@@ -1,0 +1,135 @@
+name: admission_queue_prod
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: aq-postgres-prod
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${POSTGRES_NAME}
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+    volumes:
+      - aq_postgres_data:/var/lib/postgresql/data
+    networks:
+      - aq_internal
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_NAME}"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+  redis:
+    image: redis:7-alpine
+    container_name: aq-redis-prod
+    restart: unless-stopped
+    command: ["redis-server", "--appendonly", "yes"]
+    volumes:
+      - aq_redis_data:/data
+    networks:
+      - aq_internal
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+  backend:
+    build:
+      context: .
+      dockerfile: admission/Dockerfile.prod
+    container_name: aq-backend-prod
+    restart: unless-stopped
+    env_file:
+      - .env.prod
+    environment:
+      DJANGO_SETTINGS_MODULE: admission.settings_prod
+      POSTGRES_HOST: postgres
+      REDIS_HOST: redis
+      USE_REDIS: "true"
+    ports:
+      - "127.0.0.1:18080:8000"
+    volumes:
+      - aq_static_data:/app/admission/static
+      - aq_media_data:/app/admission/media
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    networks:
+      - aq_internal
+
+  rq-worker:
+    build:
+      context: .
+      dockerfile: admission/Dockerfile.prod
+    container_name: aq-rq-worker-prod
+    restart: unless-stopped
+    env_file:
+      - .env.prod
+    environment:
+      DJANGO_SETTINGS_MODULE: admission.settings_prod
+      POSTGRES_HOST: postgres
+      REDIS_HOST: redis
+      USE_REDIS: "true"
+    command: ["python", "manage.py", "rqworker", "default"]
+    volumes:
+      - aq_static_data:/app/admission/static
+      - aq_media_data:/app/admission/media
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    networks:
+      - aq_internal
+
+  max-bot:
+    build:
+      context: ./max_bot
+      dockerfile: Dockerfile
+    container_name: aq-max-bot-prod
+    restart: unless-stopped
+    env_file:
+      - .env.prod
+    environment:
+      DJANGO_API_URL: http://backend:8000
+      REDIS_URL: redis://redis:6379/3
+      MAX_BOT_HTTP_HOST: 0.0.0.0
+      MAX_BOT_HTTP_PORT: 3000
+    depends_on:
+      redis:
+        condition: service_healthy
+      backend:
+        condition: service_started
+    networks:
+      - aq_internal
+
+  frontend:
+    build:
+      context: ../AdmissionQueueWeb
+      dockerfile: Dockerfile
+      args:
+        VITE_API_URL: ${VITE_API_URL}
+        VITE_BASE_URL: ${VITE_BASE_URL}
+        VITE_WS_URL: ${VITE_WS_URL}
+        VITE_PUBLIC_BASE_PATH: ${VITE_PUBLIC_BASE_PATH}
+    container_name: aq-frontend-prod
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:18081:80"
+    depends_on:
+      - backend
+    networks:
+      - aq_internal
+
+volumes:
+  aq_postgres_data:
+  aq_redis_data:
+  aq_static_data:
+  aq_media_data:
+
+networks:
+  aq_internal:
+    driver: bridge
