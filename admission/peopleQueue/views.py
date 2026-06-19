@@ -273,7 +273,7 @@ class OperatorTalonActionAPIView(APIView):
             log = TalonLog.objects.create(
                 talon=talon,
                 action=TalonActions.ASSIGNED,
-                comment="Вызов талона оператором",
+                comment="",
                 created_by=user,
             )
 
@@ -817,12 +817,15 @@ class PublicQueueStateAPIView(APIView):
                 settings_item.user_id
             )
 
-            last_log = None
+            last_assigned_log = None
 
             if talon is not None:
-                last_log = (
+                last_assigned_log = (
                     TalonLog.objects
-                    .filter(talon=talon)
+                    .filter(
+                        talon=talon,
+                        action=TalonActions.ASSIGNED,
+                    )
                     .order_by("-created_at", "-pk")
                     .first()
                 )
@@ -837,12 +840,15 @@ class PublicQueueStateAPIView(APIView):
                             "name": talon.name,
                             "action": talon.action,
                             "purpose": talon.purpose.name,
-                            "last_log_id": last_log.pk if last_log else None,
-                            "last_log_action": last_log.action if last_log else None,
-                            "last_log_comment": last_log.comment if last_log else None,
-                            "last_log_created_at": (
-                                last_log.created_at.isoformat()
-                                if last_log else None
+                            "last_assigned_log_id": (
+                                last_assigned_log.pk
+                                if last_assigned_log
+                                else None
+                            ),
+                            "last_assigned_log_created_at": (
+                                last_assigned_log.created_at.isoformat()
+                                if last_assigned_log
+                                else None
                             ),
                         }
                         if talon is not None
