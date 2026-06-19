@@ -817,6 +817,16 @@ class PublicQueueStateAPIView(APIView):
                 settings_item.user_id
             )
 
+            last_log = None
+
+            if talon is not None:
+                last_log = (
+                    TalonLog.objects
+                    .filter(talon=talon)
+                    .order_by("-created_at", "-pk")
+                    .first()
+                )
+
             public_locations.append(
                 {
                     "id": settings_item.location.pk,
@@ -827,6 +837,13 @@ class PublicQueueStateAPIView(APIView):
                             "name": talon.name,
                             "action": talon.action,
                             "purpose": talon.purpose.name,
+                            "last_log_id": last_log.pk if last_log else None,
+                            "last_log_action": last_log.action if last_log else None,
+                            "last_log_comment": last_log.comment if last_log else None,
+                            "last_log_created_at": (
+                                last_log.created_at.isoformat()
+                                if last_log else None
+                            ),
                         }
                         if talon is not None
                         else None
