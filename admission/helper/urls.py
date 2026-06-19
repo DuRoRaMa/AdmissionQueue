@@ -1,9 +1,16 @@
-from django.urls import re_path, path
+from django.urls import re_path
 
 from . import views
 
-app_name = 'helper'
+
+app_name = "helper"
+
 urlpatterns = [
-    re_path(r"^info", views.HelpInfoListAPIView.as_view()),
-    re_path(r"^request", views.HelpRequestCreateAPIView.as_view()),
+    re_path(r"^info/?$", views.HelpInfoListAPIView.as_view()),
+    re_path(r"^request/?$", views.HelpRequestCreateAPIView.as_view()),
+    re_path(
+        r"^max/link-code/?$",
+        views.HelperMaxLinkCodeAPIView.as_view(),
+        name="helper-max-link-code",
+    ),
 ]

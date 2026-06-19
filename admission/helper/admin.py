@@ -1,4 +1,5 @@
 from django.contrib import admin
+
 from . import models
 
 
@@ -13,6 +14,7 @@ class HelperAdmin(admin.ModelAdmin):
         "is_active",
         "tg_chat_id",
         "max_user_id",
+        "max_link_code",
         "updated_at",
         "created_at",
     )
@@ -21,10 +23,9 @@ class HelperAdmin(admin.ModelAdmin):
         "user__first_name",
         "user__last_name",
         "sector",
-        "tg_chat_id",
         "max_user_id",
+        "max_link_code",
     )
-    list_filter = ("is_active", "sector")
 
 
 @admin.register(models.HelpRequest)
@@ -34,7 +35,4 @@ class HelpRequestAdmin(admin.ModelAdmin):
         "theme",
         "priority",
         "completed",
-        "created_by",
-        "created_at",
     )
-    list_filter = ("completed", "priority", "theme")

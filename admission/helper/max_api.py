@@ -1,62 +1,20 @@
-import secrets
+from datetime import timedelta
 
-from django.conf import settings
-from django.shortcuts import get_object_or_404
-from rest_framework import serializers, status
-from rest_framework.permissions import BasePermission
-from rest_framework.request import Request
+from django.utils import timezone
+from rest_framework import status
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
-from peopleQueue.models import OperatorSettings
+from peopleQueue.max_api import IsMaxBotService
 from . import models
+from . import serializers
 
 
-class IsMaxBotService(BasePermission):
-    message = "Недействительный внутренний токен."
-
-    def has_permission(self, request, view) -> bool:
-        supplied = request.headers.get("X-Internal-Token", "")
-        expected = getattr(settings, "MAX_BOT_INTERNAL_TOKEN", "")
-        return bool(expected and secrets.compare_digest(supplied, expected))
+MAX_LINK_CODE_TTL_MINUTES = 15
 
 
-class MaxBotInternalAPIView(APIView):
-    authentication_classes = []
-    permission_classes = [IsMaxBotService]
-
-
-class MaxExternalUserSerializer(serializers.Serializer):
-    external_user_id = serializers.CharField(max_length=128)
-
-
-class MaxHelperRequestCompleteSerializer(serializers.Serializer):
-    external_user_id = serializers.CharField(max_length=128)
-
-
-def get_helper_or_404(external_user_id: str) -> models.Helper:
-    return get_object_or_404(
-        models.Helper.objects.select_related("user"),
-        max_user_id=external_user_id,
-    )
-
-
-def get_operator_title(user) -> str:
-    if user is None:
-        return "Неизвестно"
-
-    name = user.get_full_name() or user.get_username() or str(user)
-    operator_settings = (
-        OperatorSettings.objects
-        .select_related("location")
-        .filter(user=user)
-        .first()
-    )
-
-    if operator_settings and operator_settings.location:
-        return f"{name} (Стол {operator_settings.location.name})"
-
-    return name
+def normalize_code(value: str) -> str:
+    return value.strip().upper()
 
 
 def serialize_helper(helper: models.Helper) -> dict:
@@ -74,87 +32,252 @@ def serialize_helper(helper: models.Helper) -> dict:
 
 
 def serialize_help_request(help_request: models.HelpRequest) -> dict:
+    created_by = help_request.created_by
+
+    if created_by is None:
+        from_by = "Неизвестный оператор"
+    else:
+        from_by = created_by.get_full_name() or created_by.get_username()
+
     return {
         "id": help_request.pk,
-        "from": get_operator_title(help_request.created_by),
+        "from": from_by,
         "theme": str(help_request.theme),
         "priority": help_request.get_priority_display(),
-        "text": help_request.text or "",
+        "text": help_request.text,
         "created_at": help_request.created_at.astimezone().strftime(
             "%d.%m.%Y %H:%M"
         ),
     }
 
 
-class MaxHelperMeAPIView(MaxBotInternalAPIView):
-    def get(self, request: Request) -> Response:
-        serializer = MaxExternalUserSerializer(data=request.GET)
+def get_helper_by_external_user_id(external_user_id: str):
+    return models.Helper.objects.select_related("user").get(
+        max_user_id=external_user_id
+    )
+
+
+class MaxHelperLinkAPIView(APIView):
+    """
+    Привязка MAX-пользователя к Helper по одноразовому коду.
+    Вызывается только MAX-ботом.
+    """
+
+    authentication_classes = []
+    permission_classes = [IsMaxBotService]
+
+    def post(self, request, *args, **kwargs):
+        serializer = serializers.MaxHelperLinkSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
 
-        helper = get_helper_or_404(
-            serializer.validated_data["external_user_id"]
+        code = normalize_code(serializer.validated_data["code"])
+        external_user_id = serializer.validated_data["external_user_id"]
+
+        try:
+            helper = models.Helper.objects.select_related("user").get(
+                max_link_code=code
+            )
+        except models.Helper.DoesNotExist:
+            return Response(
+                {"detail": "Код привязки MAX не найден."},
+                status=status.HTTP_404_NOT_FOUND,
+            )
+
+        if helper.max_link_code_created_at is None:
+            return Response(
+                {"detail": "Код привязки MAX недействителен."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        expires_at = helper.max_link_code_created_at + timedelta(
+            minutes=MAX_LINK_CODE_TTL_MINUTES
         )
-        return Response(serialize_helper(helper), status=status.HTTP_200_OK)
+
+        if timezone.now() > expires_at:
+            helper.max_link_code = None
+            helper.max_link_code_created_at = None
+            helper.save(
+                update_fields=[
+                    "max_link_code",
+                    "max_link_code_created_at",
+                    "updated_at",
+                ]
+            )
+
+            return Response(
+                {"detail": "Код привязки MAX истек. Сгенерируйте новый код."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        already_linked_helper = (
+            models.Helper.objects.filter(max_user_id=external_user_id)
+            .exclude(pk=helper.pk)
+            .first()
+        )
+
+        if already_linked_helper is not None:
+            return Response(
+                {
+                    "detail": (
+                        "Этот пользователь MAX уже привязан "
+                        "к другому помощнику."
+                    )
+                },
+                status=status.HTTP_409_CONFLICT,
+            )
+
+        helper.max_user_id = external_user_id
+        helper.max_link_code = None
+        helper.max_link_code_created_at = None
+        helper.save(
+            update_fields=[
+                "max_user_id",
+                "max_link_code",
+                "max_link_code_created_at",
+                "updated_at",
+            ]
+        )
+
+        return Response(
+            {
+                "detail": "MAX успешно привязан к помощнику.",
+                "helper": serialize_helper(helper),
+            },
+            status=status.HTTP_200_OK,
+        )
 
 
-class MaxHelperToggleActiveAPIView(MaxBotInternalAPIView):
-    def post(self, request: Request) -> Response:
-        serializer = MaxExternalUserSerializer(data=request.data)
+class MaxHelperProfileAPIView(APIView):
+    authentication_classes = []
+    permission_classes = [IsMaxBotService]
+
+    def get(self, request, *args, **kwargs):
+        external_user_id = request.GET.get("external_user_id", "")
+
+        if not external_user_id:
+            return Response(
+                {"detail": "Не указан external_user_id."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        try:
+            helper = get_helper_by_external_user_id(external_user_id)
+        except models.Helper.DoesNotExist:
+            return Response(
+                {"detail": "MAX-пользователь не привязан к помощнику."},
+                status=status.HTTP_404_NOT_FOUND,
+            )
+
+        return Response({"helper": serialize_helper(helper)})
+
+
+class MaxHelperToggleActiveAPIView(APIView):
+    authentication_classes = []
+    permission_classes = [IsMaxBotService]
+
+    def post(self, request, *args, **kwargs):
+        serializer = serializers.MaxExternalUserSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
 
-        helper = get_helper_or_404(
-            serializer.validated_data["external_user_id"]
-        )
+        external_user_id = serializer.validated_data["external_user_id"]
+
+        try:
+            helper = get_helper_by_external_user_id(external_user_id)
+        except models.Helper.DoesNotExist:
+            return Response(
+                {"detail": "MAX-пользователь не привязан к помощнику."},
+                status=status.HTTP_404_NOT_FOUND,
+            )
+
         helper.is_active = not helper.is_active
         helper.save(update_fields=["is_active", "updated_at"])
 
-        return Response(serialize_helper(helper), status=status.HTTP_200_OK)
-
-
-class MaxHelperRequestsAPIView(MaxBotInternalAPIView):
-    def get(self, request: Request) -> Response:
-        serializer = MaxExternalUserSerializer(data=request.GET)
-        serializer.is_valid(raise_exception=True)
-
-        helper = get_helper_or_404(
-            serializer.validated_data["external_user_id"]
+        return Response(
+            {
+                "detail": "Статус помощника обновлен.",
+                "helper": serialize_helper(helper),
+            },
+            status=status.HTTP_200_OK,
         )
+
+
+class MaxHelperActiveRequestsAPIView(APIView):
+    authentication_classes = []
+    permission_classes = [IsMaxBotService]
+
+    def get(self, request, *args, **kwargs):
+        external_user_id = request.GET.get("external_user_id", "")
+
+        if not external_user_id:
+            return Response(
+                {"detail": "Не указан external_user_id."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        try:
+            helper = get_helper_by_external_user_id(external_user_id)
+        except models.Helper.DoesNotExist:
+            return Response(
+                {"detail": "MAX-пользователь не привязан к помощнику."},
+                status=status.HTTP_404_NOT_FOUND,
+            )
+
         requests = (
-            models.HelpRequest.objects
-            .select_related("created_by", "theme")
+            models.HelpRequest.objects.select_related("created_by", "theme")
             .filter(helper=helper, completed=False)
             .order_by("-created_at")
         )
 
         return Response(
-            {"requests": [serialize_help_request(item) for item in requests]},
+            {
+                "requests": [
+                    serialize_help_request(help_request)
+                    for help_request in requests
+                ]
+            },
             status=status.HTTP_200_OK,
         )
 
 
-class MaxHelperRequestCompleteAPIView(MaxBotInternalAPIView):
-    def post(self, request: Request, request_id: int) -> Response:
-        serializer = MaxHelperRequestCompleteSerializer(data=request.data)
+class MaxHelperCompleteRequestAPIView(APIView):
+    authentication_classes = []
+    permission_classes = [IsMaxBotService]
+
+    def post(self, request, request_id: int, *args, **kwargs):
+        serializer = serializers.MaxExternalUserSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
 
-        helper = get_helper_or_404(
-            serializer.validated_data["external_user_id"]
-        )
-        help_request = get_object_or_404(
-            models.HelpRequest.objects.select_related("helper", "theme", "created_by"),
-            pk=request_id,
-            helper=helper,
-        )
+        external_user_id = serializer.validated_data["external_user_id"]
 
-        if not help_request.completed:
-            help_request.completed = True
-            help_request.save(update_fields=["completed", "updated_at"])
+        try:
+            helper = get_helper_by_external_user_id(external_user_id)
+        except models.Helper.DoesNotExist:
+            return Response(
+                {"detail": "MAX-пользователь не привязан к помощнику."},
+                status=status.HTTP_404_NOT_FOUND,
+            )
+
+        try:
+            help_request = models.HelpRequest.objects.get(
+                pk=request_id,
+                helper=helper,
+            )
+        except models.HelpRequest.DoesNotExist:
+            return Response(
+                {"detail": "Заявка помощи не найдена."},
+                status=status.HTTP_404_NOT_FOUND,
+            )
+
+        if help_request.completed:
+            return Response(
+                {"detail": "Заявка уже была выполнена."},
+                status=status.HTTP_200_OK,
+            )
+
+        help_request.completed = True
+        help_request.save(update_fields=["completed", "updated_at"])
 
         return Response(
-            {
-                "id": help_request.pk,
-                "completed": help_request.completed,
-                "detail": "Заявка помощи выполнена.",
-            },
+            {"detail": "Заявка помощи отмечена как выполненная."},
             status=status.HTTP_200_OK,
         )

@@ -1,27 +1,32 @@
 from django.urls import path
 
-from .max_api import (
-    MaxHelperMeAPIView,
-    MaxHelperRequestCompleteAPIView,
-    MaxHelperRequestsAPIView,
-    MaxHelperToggleActiveAPIView,
-)
+from . import max_api
+
 
 urlpatterns = [
-    path("me/", MaxHelperMeAPIView.as_view(), name="max-helper-me"),
+    path(
+        "link/",
+        max_api.MaxHelperLinkAPIView.as_view(),
+        name="max-helper-link",
+    ),
+    path(
+        "me/",
+        max_api.MaxHelperProfileAPIView.as_view(),
+        name="max-helper-profile",
+    ),
     path(
         "toggle-active/",
-        MaxHelperToggleActiveAPIView.as_view(),
+        max_api.MaxHelperToggleActiveAPIView.as_view(),
         name="max-helper-toggle-active",
     ),
     path(
         "requests/",
-        MaxHelperRequestsAPIView.as_view(),
-        name="max-helper-requests",
+        max_api.MaxHelperActiveRequestsAPIView.as_view(),
+        name="max-helper-active-requests",
     ),
     path(
         "requests/<int:request_id>/complete/",
-        MaxHelperRequestCompleteAPIView.as_view(),
-        name="max-helper-request-complete",
+        max_api.MaxHelperCompleteRequestAPIView.as_view(),
+        name="max-helper-complete-request",
     ),
 ]
