@@ -29,6 +29,7 @@ urlpatterns = [
         "api/internal/max/",
         include("peopleQueue.max_urls"),
     ),
+    path("api/internal/max/helpers/", include("helper.max_urls")),
     re_path(r'^graphql', csrf_exempt(AsyncGraphQLView.as_view(
         graphiql=settings.DEBUG,
         schema=schema,
