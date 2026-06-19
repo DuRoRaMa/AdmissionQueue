@@ -1,4 +1,4 @@
-import { Keyboard } from '@maxhub/max-bot-api';
+import { Keyboard } from '@maxhub/max-bot-api'
 
 export function mainKeyboard() {
   return Keyboard.inlineKeyboard([
@@ -12,10 +12,18 @@ export function mainKeyboard() {
       Keyboard.button.callback(
         'Подписаться',
         'talons:subscribe',
-        { intent: 'positive' },
+        {
+          intent: 'positive',
+        },
       ),
     ],
-  ]);
+    [
+      Keyboard.button.callback(
+        'Помощник',
+        'helper:menu',
+      ),
+    ],
+  ])
 }
 
 export function backToMenuKeyboard() {
@@ -26,7 +34,7 @@ export function backToMenuKeyboard() {
         'menu:main',
       ),
     ],
-  ]);
+  ])
 }
 
 export function talonKeyboard(
@@ -35,14 +43,16 @@ export function talonKeyboard(
 ) {
   const reviewButton = hasComment
     ? Keyboard.button.callback(
-        'Мой отзыв',
-        `talon:comment:${talonId}`,
-      )
+      'Мой отзыв',
+      `talon:comment:${talonId}`,
+    )
     : Keyboard.button.callback(
-        'Оставить отзыв',
-        `talon:comment:add:${talonId}`,
-        { intent: 'positive' },
-      );
+      'Оставить отзыв',
+      `talon:comment:add:${talonId}`,
+      {
+        intent: 'positive',
+      },
+    )
 
   return Keyboard.inlineKeyboard([
     [reviewButton],
@@ -56,5 +66,55 @@ export function talonKeyboard(
         'menu:main',
       ),
     ],
-  ]);
+  ])
+}
+
+export function helperKeyboard(isActive: boolean) {
+  return Keyboard.inlineKeyboard([
+    [
+      Keyboard.button.callback(
+        isActive ? 'Стать неактивным' : 'Стать активным',
+        'helper:toggle',
+        {
+          intent: isActive ? 'negative' : 'positive',
+        },
+      ),
+    ],
+    [
+      Keyboard.button.callback(
+        'Активные заявки',
+        'helper:requests',
+      ),
+    ],
+    [
+      Keyboard.button.callback(
+        'Меню',
+        'menu:main',
+      ),
+    ],
+  ])
+}
+
+export function helperRequestKeyboard(requestId: number) {
+  return Keyboard.inlineKeyboard([
+    [
+      Keyboard.button.callback(
+        'Выполнить',
+        `helper:complete:${requestId}`,
+        {
+          intent: 'positive',
+        },
+      ),
+    ],
+    [
+      Keyboard.button.callback(
+        'Активные заявки',
+        'helper:requests',
+      ),
+      Keyboard.button.callback(
+        'Меню',
+        'menu:main',
+      ),
+    ],
+  ])
 }

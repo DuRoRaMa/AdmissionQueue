@@ -1,5 +1,5 @@
-import type { Bot } from '@maxhub/max-bot-api';
-import { mainKeyboard } from '../keyboards/mainKeyboard.js';
+import type { Bot } from '@maxhub/max-bot-api'
+import { mainKeyboard } from '../keyboards/mainKeyboard.js'
 
 const greeting = [
   'Привет!',
@@ -7,16 +7,19 @@ const greeting = [
   '',
   'Чтобы узнавать о событиях талона, нажмите «Подписаться».',
   'Чтобы посмотреть свои талоны или оставить отзыв, откройте «Мои талоны».',
-].join('\n');
+  'Если вы помощник, откройте раздел «Помощник».',
+].join('\n')
 
 export function registerMenuHandlers(bot: Bot) {
   const showMenu = async (ctx: any) => {
     await ctx.reply(greeting, {
-      attachments: [mainKeyboard()],
-    });
-  };
+      attachments: [
+        mainKeyboard(),
+      ],
+    })
+  }
 
-  bot.command('start', showMenu);
-  bot.action('menu:main', showMenu);
-  bot.on('bot_started', showMenu);
+  bot.command('start', showMenu)
+  bot.action('menu:main', showMenu)
+  bot.on('bot_started', showMenu)
 }
