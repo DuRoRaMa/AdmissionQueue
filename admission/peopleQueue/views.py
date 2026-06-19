@@ -264,26 +264,18 @@ class OperatorTalonActionAPIView(APIView):
             return Response(status=status.HTTP_200_OK)
 
         if action == "notify":
-            log = (
-                TalonLog.objects
-                .filter(
-                    talon=talon,
-                    action=TalonActions.ASSIGNED,
-                )
-                .last()
-            )
-
-            if log is None:
-                return Response(
-                    data={"detail": "Не найден журнал назначения талона"},
-                    status=status.HTTP_400_BAD_REQUEST,
-                )
-
             if channel_layer is None:
                 return Response(
                     data={"detail": "Канал уведомлений временно недоступен"},
                     status=status.HTTP_503_SERVICE_UNAVAILABLE,
                 )
+
+            log = TalonLog.objects.create(
+                talon=talon,
+                action=TalonActions.ASSIGNED,
+                comment="Вызов талона оператором",
+                created_by=user,
+            )
 
             async_to_sync(channel_layer.group_send)(
                 "tablo",
@@ -292,14 +284,18 @@ class OperatorTalonActionAPIView(APIView):
                     "message": log.pk,
                 },
             )
-            queue = django_rq.get_queue("default")
 
+            queue = django_rq.get_queue("default")
             queue.enqueue(
                 send_talon_called_to_max,
                 talon.pk,
                 user.pk,
             )
-            return Response(status=status.HTTP_200_OK)
+
+            return Response(
+                data={"detail": "Уведомление запущено"},
+                status=status.HTTP_200_OK,
+            )
 
         if action == "redirect":
             return self._redirect_talon(
