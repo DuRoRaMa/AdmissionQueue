@@ -152,7 +152,7 @@ RQ_QUEUES = {
 # Telegram / MAX bot
 # ============================================================
 
-BOT_TOKEN = os.getenv("BOT_TOKEN", "")
+BOT_TOKEN = os.getenv("BOT_TOKEN", " ")
 
 MAX_BOT_TOKEN = os.getenv("MAX_BOT_TOKEN", "")
 MAX_BOT_INTERNAL_TOKEN = os.getenv("MAX_BOT_INTERNAL_TOKEN", "")
