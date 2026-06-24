@@ -5,9 +5,9 @@ from . import max_api
 
 urlpatterns = [
     path(
-        "link/",
+        "link-code/",
         max_api.MaxHelperLinkAPIView.as_view(),
-        name="max-helper-link",
+        name="max-helper-link-code",
     ),
     path(
         "me/",
