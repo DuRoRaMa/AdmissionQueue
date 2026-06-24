@@ -21,7 +21,10 @@ function getUserId(ctx: any): number | null {
     ctx.message?.recipient?.user_id ??
     ctx.update?.user?.user_id ??
     ctx.update?.message?.sender?.user_id ??
-    ctx.update?.message?.recipient?.user_id
+    ctx.update?.message?.recipient?.user_id ??
+    ctx.rawUpdate?.user?.user_id ??
+    ctx.rawUpdate?.message?.sender?.user_id ??
+    ctx.rawUpdate?.message?.recipient?.user_id
 
   if (value === undefined || value === null) {
     logger.warn(
@@ -33,6 +36,8 @@ function getUserId(ctx: any): number | null {
         messageRecipient: ctx.message?.recipient,
         updateUser: ctx.update?.user,
         updateMessageSender: ctx.update?.message?.sender,
+        rawUpdateUser: ctx.rawUpdate?.user,
+        rawUpdateMessageSender: ctx.rawUpdate?.message?.sender,
       },
       'MAX user_id not found',
     )
@@ -44,9 +49,7 @@ function getUserId(ctx: any): number | null {
 
   if (!Number.isFinite(userId)) {
     logger.warn(
-      {
-        value,
-      },
+      { value },
       'MAX user_id is not a number',
     )
 
@@ -62,6 +65,8 @@ function getMessageText(ctx: any): string {
     ctx.message?.text ??
     ctx.update?.message?.body?.text ??
     ctx.update?.message?.text ??
+    ctx.rawUpdate?.message?.body?.text ??
+    ctx.rawUpdate?.message?.text ??
     ctx.body?.text ??
     '',
   ).trim()
@@ -167,7 +172,7 @@ async function showHelperRequests(ctx: any) {
         'Активных заявок помощи нет.',
         {
           attachments: [
-            helperKeyboard(false),
+            mainKeyboard(),
           ],
         },
       )
@@ -253,14 +258,41 @@ async function handleLinkCommand(ctx: any) {
   }
 }
 
+function getSafeDebugCtx(ctx: any) {
+  return {
+    ctxKeys: Object.keys(ctx ?? {}),
+    user: ctx.user,
+    sender: ctx.sender,
+    message: ctx.message,
+    update: ctx.update,
+    rawUpdate: ctx.rawUpdate,
+    text: getMessageText(ctx),
+  }
+}
+
 export function registerHelperHandlers(bot: Bot) {
+  /**
+   * Глобальный перехватчик.
+   * Нужен потому, что в MAX `bot.command('link')` может не ловить `/link КОД`.
+   */
+  ;(bot as any).use(async (ctx: any, next: any) => {
+    const text = getMessageText(ctx)
+
+    logger.info(
+      getSafeDebugCtx(ctx),
+      'MAX incoming update in helper middleware',
+    )
+
+    if (text.toLowerCase().startsWith('/link')) {
+      await handleLinkCommand(ctx)
+      return
+    }
+
+    return next()
+  })
+
   bot.command('link', handleLinkCommand)
 
-  /**
-   * Fallback для MAX:
-   * bot.command('link') может не срабатывать на команду с аргументом `/link CODE`,
-   * поэтому отдельно перехватываем обычное входящее сообщение.
-   */
   bot.on('message_created', async (ctx: any, next?: any) => {
     const text = getMessageText(ctx)
 
