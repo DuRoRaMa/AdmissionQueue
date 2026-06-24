@@ -14,16 +14,63 @@ import {
 import { logger } from '../logger.js'
 
 function getUserId(ctx: any): number | null {
-  return ctx.user?.user_id ?? null
+  const value =
+    ctx.user?.user_id ??
+    ctx.sender?.user_id ??
+    ctx.message?.sender?.user_id ??
+    ctx.message?.recipient?.user_id ??
+    ctx.update?.user?.user_id ??
+    ctx.update?.message?.sender?.user_id ??
+    ctx.update?.message?.recipient?.user_id
+
+  if (value === undefined || value === null) {
+    logger.warn(
+      {
+        ctxKeys: Object.keys(ctx ?? {}),
+        user: ctx.user,
+        sender: ctx.sender,
+        messageSender: ctx.message?.sender,
+        messageRecipient: ctx.message?.recipient,
+        updateUser: ctx.update?.user,
+        updateMessageSender: ctx.update?.message?.sender,
+      },
+      'MAX user_id not found',
+    )
+
+    return null
+  }
+
+  const userId = Number(value)
+
+  if (!Number.isFinite(userId)) {
+    logger.warn(
+      {
+        value,
+      },
+      'MAX user_id is not a number',
+    )
+
+    return null
+  }
+
+  return userId
 }
 
 function getMessageText(ctx: any): string {
-  return String(ctx.message?.body?.text ?? '').trim()
+  return String(
+    ctx.message?.body?.text ??
+    ctx.message?.text ??
+    ctx.update?.message?.body?.text ??
+    ctx.update?.message?.text ??
+    ctx.body?.text ??
+    '',
+  ).trim()
 }
 
 function formatError(error: any): string {
   return (
     error?.response?.data?.detail ??
+    error?.message ??
     'Не удалось выполнить действие. Попробуйте ещё раз.'
   )
 }
@@ -65,6 +112,9 @@ async function showHelperMenu(ctx: any) {
   const userId = getUserId(ctx)
 
   if (!userId) {
+    await ctx.reply(
+      'Не удалось определить пользователя MAX. Попробуйте написать /start и повторить действие.',
+    )
     return
   }
 
@@ -103,6 +153,9 @@ async function showHelperRequests(ctx: any) {
   const userId = getUserId(ctx)
 
   if (!userId) {
+    await ctx.reply(
+      'Не удалось определить пользователя MAX. Попробуйте написать /start и повторить действие.',
+    )
     return
   }
 
@@ -114,7 +167,7 @@ async function showHelperRequests(ctx: any) {
         'Активных заявок помощи нет.',
         {
           attachments: [
-            mainKeyboard(),
+            helperKeyboard(false),
           ],
         },
       )
@@ -137,55 +190,87 @@ async function showHelperRequests(ctx: any) {
   }
 }
 
-export function registerHelperHandlers(bot: Bot) {
-  bot.command('link', async (ctx: any) => {
-    const userId = getUserId(ctx)
+async function handleLinkCommand(ctx: any) {
+  const userId = getUserId(ctx)
 
-    if (!userId) {
-      return
-    }
+  if (!userId) {
+    await ctx.reply(
+      'Не удалось определить пользователя MAX. Попробуйте написать /start и повторить привязку.',
+    )
+    return
+  }
 
-    const text = getMessageText(ctx)
-    const code = text.replace(/^\/link\s*/i, '').trim().toUpperCase()
+  const text = getMessageText(ctx)
+  const code = text.replace(/^\/link\s*/i, '').trim().toUpperCase()
 
-    if (!code) {
-      await ctx.reply('Отправьте команду в формате: /link КОД')
-      return
-    }
+  logger.info(
+    {
+      userId,
+      text,
+      code,
+    },
+    'MAX helper link command received',
+  )
 
-    try {
-      const result = await linkHelper(userId, code)
-      const helper = result.helper
+  if (!code) {
+    await ctx.reply('Отправьте команду в формате: /link КОД')
+    return
+  }
 
-      if (!helper) {
-        await ctx.reply(
-          result.detail ?? 'MAX успешно привязан.',
-          {
-            attachments: [
-              mainKeyboard(),
-            ],
-          },
-        )
-        return
-      }
+  try {
+    const result = await linkHelper(userId, code)
+    const helper = result.helper
 
+    if (!helper) {
       await ctx.reply(
-        [
-          result.detail ?? 'MAX успешно привязан к профилю помощника.',
-          '',
-          `Пользователь: ${helperName(helper)}`,
-          `Сектор: ${helper.sector}`,
-          `Статус: ${helperStatusText(helper.is_active)}`,
-        ].join('\n'),
+        result.detail ?? 'MAX успешно привязан.',
         {
           attachments: [
-            helperKeyboard(helper.is_active),
+            mainKeyboard(),
           ],
         },
       )
-    } catch (error) {
-      logger.error(error)
-      await ctx.reply(formatError(error))
+      return
+    }
+
+    await ctx.reply(
+      [
+        result.detail ?? 'MAX успешно привязан к профилю помощника.',
+        '',
+        `Пользователь: ${helperName(helper)}`,
+        `Сектор: ${helper.sector}`,
+        `Статус: ${helperStatusText(helper.is_active)}`,
+      ].join('\n'),
+      {
+        attachments: [
+          helperKeyboard(helper.is_active),
+        ],
+      },
+    )
+  } catch (error) {
+    logger.error(error)
+    await ctx.reply(formatError(error))
+  }
+}
+
+export function registerHelperHandlers(bot: Bot) {
+  bot.command('link', handleLinkCommand)
+
+  /**
+   * Fallback для MAX:
+   * bot.command('link') может не срабатывать на команду с аргументом `/link CODE`,
+   * поэтому отдельно перехватываем обычное входящее сообщение.
+   */
+  bot.on('message_created', async (ctx: any, next?: any) => {
+    const text = getMessageText(ctx)
+
+    if (text.toLowerCase().startsWith('/link')) {
+      await handleLinkCommand(ctx)
+      return
+    }
+
+    if (typeof next === 'function') {
+      return next()
     }
   })
 
@@ -197,6 +282,9 @@ export function registerHelperHandlers(bot: Bot) {
     const userId = getUserId(ctx)
 
     if (!userId) {
+      await ctx.reply(
+        'Не удалось определить пользователя MAX. Попробуйте написать /start и повторить действие.',
+      )
       return
     }
 
@@ -230,6 +318,9 @@ export function registerHelperHandlers(bot: Bot) {
       const requestId = Number(ctx.match?.[1])
 
       if (!userId || !Number.isFinite(requestId)) {
+        await ctx.reply(
+          'Не удалось определить пользователя MAX или номер заявки.',
+        )
         return
       }
 
