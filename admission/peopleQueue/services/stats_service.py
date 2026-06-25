@@ -9,42 +9,57 @@ from django.utils import timezone
 
 from ..models import Talon, TalonActions, TalonLog
 from django.contrib.auth import get_user_model
+from rest_framework.exceptions import ValidationError
 
 STATUS_LABELS = dict(TalonActions.choices)
 
 
-def _parse_datetime_param(value: str | None, *, is_end: bool = False) -> datetime:
-    """
-    Поддерживает форматы:
-    - 2026-06-03
-    - 2026-06-03T10:00:00
-    - 2026-06-03T10:00:00+10:00
-
-    Если end передан как дата без времени, то считаем весь день:
-    end=2026-06-03 -> 2026-06-04 00:00:00
-    """
-    current_tz = timezone.get_current_timezone()
-
+def _parse_datetime_param(value, is_end=False):
     if not value:
-        now = timezone.localtime()
+        return None
 
-        if is_end:
-            return now
+    value = str(value).strip()
 
-        return timezone.make_aware(
-            datetime.combine(now.date(), time.min),
-            current_tz,
-        )
+    parsed = None
+    is_date_only = False
 
-    date_only = len(value) == 10
+    # 1. Пробуем ISO: 2026-06-26 или 2026-06-26T10:30:00
+    try:
+        parsed = datetime.fromisoformat(value.replace("Z", "+00:00"))
 
-    parsed = datetime.fromisoformat(value.replace("Z", "+00:00"))
+        # Если пришла только дата без времени
+        if "T" not in value and " " not in value:
+            is_date_only = True
+
+    except ValueError:
+        # 2. Пробуем русский формат: 26.06.2026
+        try:
+            parsed_date = datetime.strptime(value, "%d.%m.%Y").date()
+            parsed = datetime.combine(
+                parsed_date,
+                time.max if is_end else time.min,
+            )
+            is_date_only = True
+
+        except ValueError:
+            raise ValidationError(
+                {
+                    "date": (
+                        "Некорректный формат даты. "
+                        "Используйте YYYY-MM-DD или DD.MM.YYYY."
+                    )
+                }
+            )
+
+    # Если ISO был только датой, для end ставим конец дня
+    if is_date_only and is_end:
+        parsed = datetime.combine(parsed.date(), time.max)
+
+    if is_date_only and not is_end:
+        parsed = datetime.combine(parsed.date(), time.min)
 
     if timezone.is_naive(parsed):
-        parsed = timezone.make_aware(parsed, current_tz)
-
-    if is_end and date_only:
-        parsed = parsed + timedelta(days=1)
+        parsed = timezone.make_aware(parsed, timezone.get_current_timezone())
 
     return parsed
 
